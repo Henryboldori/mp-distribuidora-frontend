@@ -1,0 +1,68 @@
+/* Estilos globais e responsividade - Bebidas Pelicano */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #050505;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Evita zoom automatico em inputs no iOS (fonte precisa ser >= 16px) */
+input, select, textarea {
+  font-size: 16px !important;
+}
+
+/* Tabelas: em telas pequenas, viram lista de cards (classe usada nas paginas) */
+.tabela-responsiva {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.grid-formulario {
+  display: grid;
+  gap: 15px;
+}
+
+@media (min-width: 800px) {
+  .grid-formulario.cols-4 { grid-template-columns: 2fr 1fr 1fr 1fr auto; align-items: end; }
+  .grid-formulario.cols-3 { grid-template-columns: 2fr 2fr 1fr auto; align-items: end; }
+}
+
+@media (max-width: 799px) {
+  .grid-formulario { grid-template-columns: 1fr; }
+
+  /* Esconde a tabela tradicional e mostra os cards no mobile */
+  .tabela-desktop { display: none; }
+  .cards-mobile { display: flex; flex-direction: column; gap: 12px; }
+}
+
+@media (min-width: 800px) {
+  .tabela-desktop { display: table; }
+  .cards-mobile { display: none; }
+}
+
+.card-mobile {
+  background-color: #161616;
+  border: 1px solid #262626;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.card-mobile-linha {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 0.9rem;
+  border-bottom: 1px solid #1f1f1f;
+}
+.card-mobile-linha:last-child { border-bottom: none; }
+.card-mobile-label { color: #777; }
+.card-mobile-valor { color: #eee; text-align: right; }
+
+/* Scrollbar mais discreta */
+::-webkit-scrollbar { height: 6px; width: 6px; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }

@@ -29,7 +29,7 @@ export default function Login() {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#050505' }}>
       <div style={{ backgroundColor: '#111', padding: '30px', borderRadius: '15px', width: '350px', border: '1px solid #222' }}>
-        <h2 style={{ color: '#22c55e', textAlign: 'center', fontFamily: 'monospace' }}>M&P Distribuidora</h2>
+        <h2 style={{ color: '#22c55e', textAlign: 'center', fontFamily: 'monospace' }}>🐦 Bebidas Pelicano</h2>
         <form onSubmit={handleLogin} style={{ marginTop: '20px' }}>
           <input
             type="email"

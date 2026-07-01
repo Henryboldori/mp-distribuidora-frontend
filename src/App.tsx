@@ -1,22 +1,16 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Menu from './components/Menu';
 
 import Login from './pages/Login';
+import Inicio from './pages/Inicio';
 import NovoPedido from './pages/NovoPedido';
 import Clientes from './pages/Clientes';
 import Pedidos from './pages/Pedidos';
 import Rotas from './pages/Rotas';
 import Produtos from './pages/Produtos';
 import Usuarios from './pages/Usuarios';
-import Dashboard from './pages/Dashboard';
-
-// Define qual e a "tela inicial" de acordo com o cargo do usuario
-function TelaInicial() {
-  const { usuario } = useAuth();
-  return usuario?.role === 'ADMIN' ? <Dashboard /> : <NovoPedido />;
-}
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -34,8 +28,13 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
 
+          {/* Mesma tela inicial para ADMIN e VENDEDOR - o conteudo se adapta ao cargo */}
           <Route path="/" element={
-            <PrivateRoute><Layout><TelaInicial /></Layout></PrivateRoute>
+            <PrivateRoute><Layout><Inicio /></Layout></PrivateRoute>
+          } />
+
+          <Route path="/novo-pedido" element={
+            <PrivateRoute><Layout><NovoPedido /></Layout></PrivateRoute>
           } />
 
           <Route path="/clientes" element={

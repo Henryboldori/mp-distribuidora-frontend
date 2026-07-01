@@ -3,7 +3,6 @@
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-// Pega o token salvo no login para mandar junto nas requisicoes protegidas
 function getHeaders() {
   const token = localStorage.getItem('token');
   return {
@@ -12,7 +11,6 @@ function getHeaders() {
   };
 }
 
-// Trata erros de forma padronizada em todas as chamadas
 async function tratarResposta(res: Response) {
   if (!res.ok) {
     const erroData = await res.json().catch(() => ({}));
@@ -37,12 +35,18 @@ export async function getClientes() {
   return tratarResposta(res);
 }
 
-export async function criarCliente(data: { nome: string; endereco: string; telefone?: string }) {
-  const res = await fetch(`${API}/clientes`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(data)
-  });
+export async function criarCliente(data: { nome: string; endereco: string; telefone?: string; categoria?: string; observacoes?: string }) {
+  const res = await fetch(`${API}/clientes`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+  return tratarResposta(res);
+}
+
+export async function atualizarCliente(id: number, data: Partial<{ nome: string; endereco: string; telefone: string; categoria: string; observacoes: string }>) {
+  const res = await fetch(`${API}/clientes/${id}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
+  return tratarResposta(res);
+}
+
+export async function excluirCliente(id: number) {
+  const res = await fetch(`${API}/clientes/${id}`, { method: 'DELETE', headers: getHeaders() });
   return tratarResposta(res);
 }
 
@@ -53,24 +57,16 @@ export async function getProdutos() {
 }
 
 export async function criarProduto(data: {
-  nome: string; descricao?: string; preco: number; desconto?: number; estoque?: number; estoqueMin?: number;
+  nome: string; descricao?: string; categoria?: string; unidade?: string; preco: number; desconto?: number; estoque?: number; estoqueMin?: number;
 }) {
-  const res = await fetch(`${API}/produtos`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(data)
-  });
+  const res = await fetch(`${API}/produtos`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
   return tratarResposta(res);
 }
 
 export async function atualizarProduto(id: number, data: Partial<{
-  nome: string; descricao: string; preco: number; desconto: number; estoque: number; estoqueMin: number;
+  nome: string; descricao: string; categoria: string; unidade: string; preco: number; desconto: number; estoque: number; estoqueMin: number;
 }>) {
-  const res = await fetch(`${API}/produtos/${id}`, {
-    method: 'PUT',
-    headers: getHeaders(),
-    body: JSON.stringify(data)
-  });
+  const res = await fetch(`${API}/produtos/${id}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
   return tratarResposta(res);
 }
 
@@ -85,21 +81,25 @@ export async function getPedidos() {
   return tratarResposta(res);
 }
 
-export async function criarPedido(data: { clienteId: number; itens: { produtoId: number; quantidade: number }[] }) {
-  const res = await fetch(`${API}/pedidos`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(data)
-  });
+export async function criarPedido(data: {
+  clienteId: number; itens: { produtoId: number; quantidade: number }[]; formaPagamento?: string; observacoes?: string;
+}) {
+  const res = await fetch(`${API}/pedidos`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
   return tratarResposta(res);
 }
 
 export async function atualizarStatusPedido(id: number, status: string) {
-  const res = await fetch(`${API}/pedidos/${id}/status`, {
-    method: 'PUT',
-    headers: getHeaders(),
-    body: JSON.stringify({ status })
-  });
+  const res = await fetch(`${API}/pedidos/${id}/status`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify({ status }) });
+  return tratarResposta(res);
+}
+
+export async function atualizarPagamentoPedido(id: number, statusPagamento: string) {
+  const res = await fetch(`${API}/pedidos/${id}/pagamento`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify({ statusPagamento }) });
+  return tratarResposta(res);
+}
+
+export async function excluirPedido(id: number) {
+  const res = await fetch(`${API}/pedidos/${id}`, { method: 'DELETE', headers: getHeaders() });
   return tratarResposta(res);
 }
 
@@ -110,15 +110,11 @@ export async function getUsuarios() {
 }
 
 export async function criarUsuario(data: { nome: string; email: string; senha: string; role: 'ADMIN' | 'VENDEDOR' }) {
-  const res = await fetch(`${API}/usuarios`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(data)
-  });
+  const res = await fetch(`${API}/usuarios`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
   return tratarResposta(res);
 }
 
-// ---------- DASHBOARD (somente admin) ----------
+// ---------- DASHBOARD ----------
 export async function getDashboard() {
   const res = await fetch(`${API}/dashboard`, { headers: getHeaders() });
   return tratarResposta(res);
