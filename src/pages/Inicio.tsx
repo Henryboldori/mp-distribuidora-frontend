@@ -21,10 +21,14 @@ interface DashboardData {
 export default function Inicio() {
   const { usuario } = useAuth();
   const [dados, setDados] = useState<DashboardData | null>(null);
+  const [erro, setErro] = useState('');
   const ehAdmin = usuario?.role === 'ADMIN';
 
+  // Formata numeros com seguranca: nunca quebra se o valor vier undefined/null
+  const fmt = (valor: number | undefined | null) => `R$ ${(valor || 0).toFixed(2)}`;
+
   useEffect(() => {
-    getDashboard().then(setDados).catch(() => {});
+    getDashboard().then(setDados).catch((err) => setErro(err.message || 'Erro ao carregar o painel.'));
   }, []);
 
   return (
@@ -37,17 +41,19 @@ export default function Inicio() {
         {ehAdmin && <Link to="/produtos" style={btnAcaoSecundario}>📦 Estoque</Link>}
       </div>
 
+      {erro && <div style={{ color: '#f87171', marginBottom: '15px' }}>{erro}</div>}
+
       {!dados ? (
         <p style={{ color: '#777' }}>Carregando...</p>
       ) : (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '15px' }}>
-            <Card titulo="Vendido Hoje" valor={`R$ ${dados.valorVendidoHoje.toFixed(2)}`} destaque />
-            <Card titulo="Pedidos Hoje" valor={dados.pedidosHoje.toString()} />
-            <Card titulo={ehAdmin ? 'Vendido (total)' : 'Meu Total Vendido'} valor={`R$ ${dados.valorTotalVendido.toFixed(2)}`} />
-            <Card titulo="A Receber (Fiado)" valor={`R$ ${dados.valorPendenteRecebimento.toFixed(2)}`} alerta={dados.valorPendenteRecebimento > 0} />
-            {ehAdmin && <Card titulo="Valor em Estoque" valor={`R$ ${dados.valorEmEstoque?.toFixed(2)}`} />}
-            <Card titulo="Clientes" valor={dados.totalClientes.toString()} />
+            <Card titulo="Vendido Hoje" valor={fmt(dados.valorVendidoHoje)} destaque />
+            <Card titulo="Pedidos Hoje" valor={(dados.pedidosHoje ?? 0).toString()} />
+            <Card titulo={ehAdmin ? 'Vendido (total)' : 'Meu Total Vendido'} valor={fmt(dados.valorTotalVendido)} />
+            <Card titulo="A Receber (Fiado)" valor={fmt(dados.valorPendenteRecebimento)} alerta={(dados.valorPendenteRecebimento || 0) > 0} />
+            {ehAdmin && <Card titulo="Valor em Estoque" valor={fmt(dados.valorEmEstoque)} />}
+            <Card titulo="Clientes" valor={(dados.totalClientes ?? 0).toString()} />
           </div>
 
           {ehAdmin && dados.produtosEstoqueBaixo && dados.produtosEstoqueBaixo.length > 0 && (
@@ -67,7 +73,7 @@ export default function Inicio() {
               {dados.vendasPorVendedor.map((v, i) => (
                 <div key={v.nome} style={{ padding: '8px 0', borderBottom: '1px solid #1a1a1a', display: 'flex', justifyContent: 'space-between', color: '#ccc', fontSize: '0.9rem' }}>
                   <span>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}º`} {v.nome}</span>
-                  <strong style={{ color: '#4ade80' }}>R$ {v.total.toFixed(2)}</strong>
+                  <strong style={{ color: '#4ade80' }}>{fmt(v.total)}</strong>
                 </div>
               ))}
             </div>

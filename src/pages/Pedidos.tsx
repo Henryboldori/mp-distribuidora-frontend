@@ -89,9 +89,9 @@ export default function Pedidos() {
                     <td style={{ padding: '10px' }}>#{p.id}</td>
                     <td style={{ padding: '10px' }}>{p.cliente?.nome}</td>
                     {ehAdmin && <td style={{ padding: '10px' }}>{p.vendedor?.nome}</td>}
-                    <td style={{ padding: '10px' }}>R$ {p.valorTotal.toFixed(2)}</td>
+                    <td style={{ padding: '10px' }}>R$ {(p.valorTotal || 0).toFixed(2)}</td>
                     <td style={{ padding: '10px' }}>
-                      {formaPagamentoLabel[p.formaPagamento]}
+                      {formaPagamentoLabel[p.formaPagamento] || p.formaPagamento}
                       {p.statusPagamento === 'PENDENTE' && (
                         <span onClick={() => marcarPago(p.id)} style={{ marginLeft: '8px', color: '#f87171', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}>
                           (marcar pago)
@@ -126,13 +126,13 @@ export default function Pedidos() {
               <div key={p.id} className="card-mobile">
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <span style={{ fontWeight: 'bold', color: '#fff' }}>#{p.id} — {p.cliente?.nome}</span>
-                  <span style={{ color: '#22c55e', fontWeight: 'bold' }}>R$ {p.valorTotal.toFixed(2)}</span>
+                  <span style={{ color: '#22c55e', fontWeight: 'bold' }}>R$ {(p.valorTotal || 0).toFixed(2)}</span>
                 </div>
                 {ehAdmin && <div className="card-mobile-linha"><span className="card-mobile-label">Vendedor</span><span className="card-mobile-valor">{p.vendedor?.nome}</span></div>}
                 <div className="card-mobile-linha">
                   <span className="card-mobile-label">Pagamento</span>
                   <span className="card-mobile-valor">
-                    {formaPagamentoLabel[p.formaPagamento]}
+                    {formaPagamentoLabel[p.formaPagamento] || p.formaPagamento}
                     {p.statusPagamento === 'PENDENTE' && (
                       <span onClick={() => marcarPago(p.id)} style={{ marginLeft: '8px', color: '#f87171', textDecoration: 'underline' }}>(pagar)</span>
                     )}

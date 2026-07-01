@@ -147,7 +147,7 @@ export default function Produtos() {
                       <td style={{ ...tdStyle, fontWeight: 'bold', color: '#fff' }}>{p.nome}</td>
                       <td style={tdStyle}>{p.categoria || '-'}</td>
                       <td style={tdStyle}>{p.unidade}</td>
-                      <td style={tdStyle}>R$ {p.preco.toFixed(2)}</td>
+                      <td style={tdStyle}>R$ {(p.preco || 0).toFixed(2)}</td>
                       <td style={tdStyle}>{p.desconto > 0 ? `${p.desconto}%` : '-'}</td>
                       <td style={{ ...tdStyle, color: p.estoque <= p.estoqueMin ? '#f87171' : '#ccc', fontWeight: p.estoque <= p.estoqueMin ? 'bold' : 'normal' }}>
                         {p.estoque} {p.estoque <= p.estoqueMin && '⚠️'}
@@ -168,7 +168,7 @@ export default function Produtos() {
                 <div key={p.id} className="card-mobile">
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <span style={{ fontWeight: 'bold', color: '#fff', fontSize: '1.05rem' }}>{p.nome}</span>
-                    <span style={{ color: '#22c55e', fontWeight: 'bold' }}>R$ {p.preco.toFixed(2)}</span>
+                    <span style={{ color: '#22c55e', fontWeight: 'bold' }}>R$ {(p.preco || 0).toFixed(2)}</span>
                   </div>
                   <div className="card-mobile-linha"><span className="card-mobile-label">Categoria</span><span className="card-mobile-valor">{p.categoria} · {p.unidade}</span></div>
                   <div className="card-mobile-linha"><span className="card-mobile-label">Desconto</span><span className="card-mobile-valor">{p.desconto > 0 ? `${p.desconto}%` : '-'}</span></div>

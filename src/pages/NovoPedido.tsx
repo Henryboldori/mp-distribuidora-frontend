@@ -52,7 +52,7 @@ export default function NovoPedido() {
       .filter(i => i.quantidade > 0));
   };
 
-  const precoComDesconto = (p: { preco: number; desconto: number }) => p.preco * (1 - p.desconto / 100);
+  const precoComDesconto = (p: { preco: number; desconto: number }) => (p.preco || 0) * (1 - (p.desconto || 0) / 100);
   const totalPedido = itens.reduce((acc, i) => acc + precoComDesconto(i) * i.quantidade, 0);
 
   const finalizarPedido = async () => {
@@ -137,7 +137,7 @@ export default function NovoPedido() {
           <div key={p.id} onClick={() => adicionarItem(p)} style={{ padding: '12px', borderBottom: '1px solid #222', display: 'flex', justifyContent: 'space-between', cursor: p.estoque === 0 ? 'not-allowed' : 'pointer', opacity: p.estoque === 0 ? 0.4 : 1 }}>
             <span>{p.nome} <span style={{ color: '#666', fontSize: '0.8rem' }}>({p.unidade})</span> {p.estoque === 0 && '— sem estoque'}</span>
             <span style={{ color: '#22c55e' }}>
-              {p.desconto > 0 && <span style={{ color: '#777', textDecoration: 'line-through', marginRight: '8px' }}>R$ {p.preco.toFixed(2)}</span>}
+              {p.desconto > 0 && <span style={{ color: '#777', textDecoration: 'line-through', marginRight: '8px' }}>R$ {(p.preco || 0).toFixed(2)}</span>}
               R$ {precoComDesconto(p).toFixed(2)}
             </span>
           </div>
