@@ -1,0 +1,12 @@
+{
+  "name": "Bebidas Pelicano",
+  "short_name": "Pelicano",
+  "description": "Sistema de vendas - Bebidas Pelicano",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#22c55e",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

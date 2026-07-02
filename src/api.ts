@@ -35,7 +35,7 @@ export async function getClientes() {
   return tratarResposta(res);
 }
 
-export async function criarCliente(data: { nome: string; endereco: string; telefone?: string; categoria?: string; observacoes?: string }) {
+export async function criarCliente(data: { nome: string; endereco?: string; telefone?: string; categoria?: string; observacoes?: string }) {
   const res = await fetch(`${API}/clientes`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
   return tratarResposta(res);
 }
@@ -76,15 +76,39 @@ export async function excluirProduto(id: number) {
 }
 
 // ---------- PEDIDOS ----------
-export async function getPedidos() {
-  const res = await fetch(`${API}/pedidos`, { headers: getHeaders() });
+export async function getPedidos(filtros?: { clienteId?: number; data?: string }) {
+  const params = new URLSearchParams();
+  if (filtros?.clienteId) params.set('clienteId', String(filtros.clienteId));
+  if (filtros?.data) params.set('data', filtros.data);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(`${API}/pedidos${qs}`, { headers: getHeaders() });
   return tratarResposta(res);
 }
 
+export async function getPedido(id: number) {
+  const res = await fetch(`${API}/pedidos/${id}`, { headers: getHeaders() });
+  return tratarResposta(res);
+}
+
+interface ItemCarrinhoEnvio {
+  produtoId?: number;
+  nomeAvulso?: string;
+  unidadeAvulso?: string;
+  quantidade: number;
+  precoUnit?: number;
+}
+
 export async function criarPedido(data: {
-  clienteId: number; itens: { produtoId: number; quantidade: number }[]; formaPagamento?: string; observacoes?: string;
+  clienteId: number; itens: ItemCarrinhoEnvio[]; formaPagamento?: string; observacoes?: string;
 }) {
   const res = await fetch(`${API}/pedidos`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+  return tratarResposta(res);
+}
+
+export async function atualizarPedido(id: number, data: {
+  clienteId?: number; itens: ItemCarrinhoEnvio[]; formaPagamento?: string; observacoes?: string;
+}) {
+  const res = await fetch(`${API}/pedidos/${id}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(data) });
   return tratarResposta(res);
 }
 
@@ -103,6 +127,19 @@ export async function excluirPedido(id: number) {
   return tratarResposta(res);
 }
 
+// ---------- ROMANEIO ----------
+export async function getRomaneio(data?: string) {
+  const qs = data ? `?data=${data}` : '';
+  const res = await fetch(`${API}/romaneio${qs}`, { headers: getHeaders() });
+  return tratarResposta(res);
+}
+
+// ---------- BUSCA GERAL ----------
+export async function buscarGeral(q: string) {
+  const res = await fetch(`${API}/busca?q=${encodeURIComponent(q)}`, { headers: getHeaders() });
+  return tratarResposta(res);
+}
+
 // ---------- USUARIOS (somente admin) ----------
 export async function getUsuarios() {
   const res = await fetch(`${API}/usuarios`, { headers: getHeaders() });
@@ -117,5 +154,38 @@ export async function criarUsuario(data: { nome: string; email: string; senha: s
 // ---------- DASHBOARD ----------
 export async function getDashboard() {
   const res = await fetch(`${API}/dashboard`, { headers: getHeaders() });
+  return tratarResposta(res);
+}
+
+// ---------- FORNECEDORES E ENTRADA DE ESTOQUE (somente admin) ----------
+export async function getFornecedores() {
+  const res = await fetch(`${API}/fornecedores`, { headers: getHeaders() });
+  return tratarResposta(res);
+}
+
+export async function criarFornecedor(data: { nome: string; telefone?: string }) {
+  const res = await fetch(`${API}/fornecedores`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+  return tratarResposta(res);
+}
+
+export async function getEntradasEstoque(produtoId?: number) {
+  const qs = produtoId ? `?produtoId=${produtoId}` : '';
+  const res = await fetch(`${API}/fornecedores/entradas${qs}`, { headers: getHeaders() });
+  return tratarResposta(res);
+}
+
+export async function registrarEntradaEstoque(data: { produtoId: number; fornecedorId?: number; quantidade: number; custoUnitario?: number }) {
+  const res = await fetch(`${API}/fornecedores/entradas`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
+  return tratarResposta(res);
+}
+
+// ---------- RELATORIOS ----------
+export async function getRelatorio(inicio?: string, fim?: string, vendedorId?: number) {
+  const params = new URLSearchParams();
+  if (inicio) params.set('inicio', inicio);
+  if (fim) params.set('fim', fim);
+  if (vendedorId) params.set('vendedorId', String(vendedorId));
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(`${API}/relatorios${qs}`, { headers: getHeaders() });
   return tratarResposta(res);
 }
