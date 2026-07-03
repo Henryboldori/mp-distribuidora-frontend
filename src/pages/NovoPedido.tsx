@@ -6,14 +6,13 @@ interface Cliente { id: number; nome: string; telefone: string | null; endereco:
 interface Produto { id: number; nome: string; unidade: string; preco: number; desconto: number; estoque: number; }
 
 interface ItemCarrinho {
-  chave: string; // id unico local (produto-ID ou avulso-timestamp)
-  produtoId?: number;
+  chave: string;
+  produtoId: number;
   nome: string;
   unidade: string;
   precoUnit: number;
   quantidade: number;
-  estoqueDisponivel?: number; // so existe se vier do catalogo
-  avulso: boolean;
+  estoqueDisponivel?: number;
 }
 
 const FORMAS_PAGAMENTO = [
@@ -23,10 +22,8 @@ const FORMAS_PAGAMENTO = [
   { valor: 'FIADO', label: '📝 Fiado (a prazo)' }
 ];
 
-const UNIDADES_AVULSO = ['Unidade', 'Caixa', 'Fardo', 'Garrafa', 'Pacote'];
-
 export default function NovoPedido() {
-  const { id } = useParams(); // se existir, estamos editando um pedido
+  const { id } = useParams();
   const navigate = useNavigate();
   const modoEdicao = !!id;
 
@@ -42,17 +39,9 @@ export default function NovoPedido() {
   const [erro, setErro] = useState('');
   const [pedidoConcluido, setPedidoConcluido] = useState<{ cliente: Cliente; total: number } | null>(null);
 
-  // Form de cadastro rapido de cliente (aparece quando busca nao acha ninguem)
   const [mostrarNovoCliente, setMostrarNovoCliente] = useState(false);
   const [novoClienteTelefone, setNovoClienteTelefone] = useState('');
   const [novoClienteEndereco, setNovoClienteEndereco] = useState('');
-
-  // Form de item avulso (produto que nao esta no catalogo)
-  const [mostrarItemAvulso, setMostrarItemAvulso] = useState(false);
-  const [avulsoNome, setAvulsoNome] = useState('');
-  const [avulsoUnidade, setAvulsoUnidade] = useState('Unidade');
-  const [avulsoPreco, setAvulsoPreco] = useState('');
-  const [avulsoQtd, setAvulsoQtd] = useState('1');
 
   useEffect(() => {
     async function carregarDados() {
@@ -65,15 +54,14 @@ export default function NovoPedido() {
           const pedido = await getPedido(Number(id));
           setClienteSel(pedido.cliente);
           setFormaPagamento(pedido.formaPagamento);
-          setItens(pedido.itens.map((i: any) => ({
-            chave: i.produtoId ? `prod-${i.produtoId}` : `avulso-${i.id}`,
-            produtoId: i.produtoId || undefined,
-            nome: i.produto ? i.produto.nome : i.nomeAvulso,
-            unidade: i.produto ? i.produto.unidade : i.unidadeAvulso,
+          setItens(pedido.itens.filter((i: any) => i.produtoId).map((i: any) => ({
+            chave: `prod-${i.produtoId}`,
+            produtoId: i.produtoId,
+            nome: i.produto?.nome || 'Produto',
+            unidade: i.produto?.unidade || 'Unidade',
             precoUnit: i.precoUnit,
             quantidade: i.quantidade,
-            estoqueDisponivel: i.produto?.estoque,
-            avulso: !i.produtoId
+            estoqueDisponivel: i.produto?.estoque
           })));
         }
       } catch (err: any) {
@@ -83,7 +71,6 @@ export default function NovoPedido() {
     carregarDados();
   }, [id]);
 
-  // Busca o historico do cliente selecionado (ultimos pedidos, pra ajudar o vendedor a sugerir)
   useEffect(() => {
     if (!clienteSel) { setHistoricoCliente([]); return; }
     getPedidos({ clienteId: clienteSel.id }).then((lista) => {
@@ -91,9 +78,7 @@ export default function NovoPedido() {
     }).catch(() => {});
   }, [clienteSel]);
 
-  const clientesFiltrados = buscaCliente
-    ? clientes.filter(c => c.nome.toLowerCase().includes(buscaCliente.toLowerCase()))
-    : [];
+  const clientesFiltrados = buscaCliente ? clientes.filter(c => c.nome.toLowerCase().includes(buscaCliente.toLowerCase())) : [];
 
   const selecionarCliente = (c: Cliente) => {
     setClienteSel(c);
@@ -107,57 +92,37 @@ export default function NovoPedido() {
       const novo = await criarCliente({ nome: buscaCliente.trim(), endereco: novoClienteEndereco || undefined, telefone: novoClienteTelefone || undefined });
       setClientes(prev => [...prev, novo]);
       selecionarCliente(novo);
-      setNovoClienteTelefone('');
-      setNovoClienteEndereco('');
+      setNovoClienteTelefone(''); setNovoClienteEndereco('');
     } catch (err: any) {
       setErro(err.message);
     }
   };
 
-  const produtosFiltrados = buscaProduto
-    ? produtos.filter(p => p.nome.toLowerCase().includes(buscaProduto.toLowerCase()))
-    : produtos;
-
+  const produtosFiltrados = buscaProduto ? produtos.filter(p => p.nome.toLowerCase().includes(buscaProduto.toLowerCase())) : produtos;
   const precoComDesconto = (p: Produto) => (p.preco || 0) * (1 - (p.desconto || 0) / 100);
 
-  const adicionarItemCatalogo = (produto: Produto) => {
+  const adicionarItem = (produto: Produto) => {
     setItens(prev => {
       const existente = prev.find(i => i.produtoId === produto.id);
-      if (existente) {
-        return prev.map(i => i.produtoId === produto.id ? { ...i, quantidade: i.quantidade + 1 } : i);
-      }
+      if (existente) return prev.map(i => i.produtoId === produto.id ? { ...i, quantidade: i.quantidade + 1 } : i);
       return [...prev, {
         chave: `prod-${produto.id}`, produtoId: produto.id, nome: produto.nome, unidade: produto.unidade,
-        precoUnit: precoComDesconto(produto), quantidade: 1, estoqueDisponivel: produto.estoque, avulso: false
+        precoUnit: precoComDesconto(produto), quantidade: 1, estoqueDisponivel: produto.estoque
       }];
     });
   };
 
-  const adicionarItemAvulso = () => {
-    if (!avulsoNome.trim() || !avulsoPreco) { setErro('Preencha nome e preço do item avulso.'); return; }
-    setItens(prev => [...prev, {
-      chave: `avulso-${Date.now()}`, nome: avulsoNome.trim(), unidade: avulsoUnidade,
-      precoUnit: Number(avulsoPreco), quantidade: Number(avulsoQtd) || 1, avulso: true
-    }]);
-    setAvulsoNome(''); setAvulsoPreco(''); setAvulsoQtd('1'); setMostrarItemAvulso(false);
-  };
-
   const alterarQuantidade = (chave: string, delta: number) => {
-    setItens(prev => prev
-      .map(i => i.chave === chave ? { ...i, quantidade: i.quantidade + delta } : i)
-      .filter(i => i.quantidade > 0));
+    setItens(prev => prev.map(i => i.chave === chave ? { ...i, quantidade: i.quantidade + delta } : i).filter(i => i.quantidade > 0));
   };
 
   const totalPedido = itens.reduce((acc, i) => acc + i.precoUnit * i.quantidade, 0);
 
   const finalizarPedido = async () => {
     setErro('');
-    if (!clienteSel || itens.length === 0) { setErro('Selecione um cliente e ao menos um item!'); return; }
+    if (!clienteSel || itens.length === 0) { setErro('Selecione um cliente e ao menos um produto!'); return; }
 
-    const itensEnvio = itens.map(i => i.avulso
-      ? { nomeAvulso: i.nome, unidadeAvulso: i.unidade, quantidade: i.quantidade, precoUnit: i.precoUnit }
-      : { produtoId: i.produtoId, quantidade: i.quantidade, precoUnit: i.precoUnit }
-    );
+    const itensEnvio = itens.map(i => ({ produtoId: i.produtoId, quantidade: i.quantidade, precoUnit: i.precoUnit }));
 
     try {
       if (modoEdicao && id) {
@@ -169,11 +134,9 @@ export default function NovoPedido() {
       await criarPedido({ clienteId: clienteSel.id, itens: itensEnvio, formaPagamento });
       setPedidoConcluido({ cliente: clienteSel, total: totalPedido });
 
-      // Tenta abrir o WhatsApp automaticamente (pode ser bloqueado como pop-up em alguns celulares - por isso o botao manual continua disponivel na tela seguinte)
       const texto = `Olá, ${clienteSel.nome}! Seu pedido foi registrado. Total: R$ ${totalPedido.toFixed(2)}. Obrigado pela preferência! 🐦`;
       const telefone = clienteSel.telefone?.replace(/\D/g, '');
-      const url = telefone ? `https://wa.me/55${telefone}?text=${encodeURIComponent(texto)}` : null;
-      if (url) window.open(url, '_blank');
+      if (telefone) window.open(`https://wa.me/55${telefone}?text=${encodeURIComponent(texto)}`, '_blank');
 
       setItens([]); setClienteSel(null); setFormaPagamento('DINHEIRO');
     } catch (err: any) {
@@ -212,22 +175,14 @@ export default function NovoPedido() {
       <h3 style={{ color: '#22c55e', marginTop: 0 }}>{modoEdicao ? `Editando Pedido #${id}` : 'Fazer Pedido'}</h3>
       {erro && <div style={{ color: '#f87171', marginBottom: '15px' }}>{erro}</div>}
 
-      {/* ---------- CLIENTE ---------- */}
       <div style={{ background: '#111', padding: '15px', borderRadius: '10px', marginBottom: '15px' }}>
         {!clienteSel ? (
           <>
-            <input
-              placeholder="Buscar cliente pelo nome..."
-              value={buscaCliente}
-              onChange={e => setBuscaCliente(e.target.value)}
-              style={inStyle}
-            />
+            <input placeholder="Buscar cliente pelo nome..." value={buscaCliente} onChange={e => setBuscaCliente(e.target.value)} style={inStyle} />
             {buscaCliente && (
               <div style={{ marginTop: '10px', border: '1px solid #333', borderRadius: '8px', overflow: 'hidden' }}>
                 {clientesFiltrados.map(c => (
-                  <div key={c.id} onClick={() => selecionarCliente(c)} style={{ padding: '12px', borderBottom: '1px solid #222', cursor: 'pointer' }}>
-                    {c.nome}
-                  </div>
+                  <div key={c.id} onClick={() => selecionarCliente(c)} style={{ padding: '12px', borderBottom: '1px solid #222', cursor: 'pointer' }}>{c.nome}</div>
                 ))}
                 {!mostrarNovoCliente ? (
                   <div onClick={() => setMostrarNovoCliente(true)} style={{ padding: '12px', color: '#22c55e', cursor: 'pointer', fontWeight: 'bold' }}>
@@ -237,7 +192,7 @@ export default function NovoPedido() {
                   <div style={{ padding: '12px', backgroundColor: '#0a0a0a' }}>
                     <div style={{ color: '#22c55e', marginBottom: '8px', fontWeight: 'bold' }}>Novo cliente: {buscaCliente}</div>
                     <input placeholder="Telefone (opcional)" value={novoClienteTelefone} onChange={e => setNovoClienteTelefone(e.target.value)} style={{ ...inStyle, marginBottom: '8px' }} />
-                    <input placeholder="Endereço (opcional, pode completar depois)" value={novoClienteEndereco} onChange={e => setNovoClienteEndereco(e.target.value)} style={{ ...inStyle, marginBottom: '8px' }} />
+                    <input placeholder="Endereço (opcional)" value={novoClienteEndereco} onChange={e => setNovoClienteEndereco(e.target.value)} style={{ ...inStyle, marginBottom: '8px' }} />
                     <button onClick={cadastrarClienteRapido} style={{ ...btnPrimario, width: '100%' }}>Salvar e Selecionar</button>
                   </div>
                 )}
@@ -251,29 +206,22 @@ export default function NovoPedido() {
           </div>
         )}
 
-        {/* Historico do cliente selecionado */}
         {clienteSel && historicoCliente.length > 0 && (
           <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #222' }}>
             <div style={{ color: '#777', fontSize: '0.8rem', marginBottom: '8px' }}>📜 Últimos pedidos deste cliente:</div>
             {historicoCliente.map((p: any) => (
               <div key={p.id} style={{ fontSize: '0.85rem', color: '#aaa', padding: '4px 0' }}>
-                {new Date(p.createdAt).toLocaleDateString('pt-BR')} — {p.itens.map((i: any) => i.produto ? i.produto.nome : i.nomeAvulso).join(', ')} (R$ {p.valorTotal.toFixed(2)})
+                {new Date(p.createdAt).toLocaleDateString('pt-BR')} — {p.itens.map((i: any) => i.produto?.nome || i.nomeAvulso).join(', ')} (R$ {p.valorTotal.toFixed(2)})
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* ---------- PRODUTOS ---------- */}
       <div style={{ background: '#111', padding: '15px', borderRadius: '10px' }}>
-        <input
-          placeholder="Buscar produto no catálogo..."
-          value={buscaProduto}
-          onChange={e => setBuscaProduto(e.target.value)}
-          style={{ ...inStyle, marginBottom: '10px' }}
-        />
+        <input placeholder="Buscar produto..." value={buscaProduto} onChange={e => setBuscaProduto(e.target.value)} style={{ ...inStyle, marginBottom: '10px' }} />
         {produtosFiltrados.map(p => (
-          <div key={p.id} onClick={() => adicionarItemCatalogo(p)} style={{ padding: '12px', borderBottom: '1px solid #222', display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }}>
+          <div key={p.id} onClick={() => adicionarItem(p)} style={{ padding: '12px', borderBottom: '1px solid #222', display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }}>
             <span>
               {p.nome} <span style={{ color: '#666', fontSize: '0.8rem' }}>({p.unidade})</span>
               {p.estoque <= 0 && <span style={{ color: '#f59e0b', fontSize: '0.8rem' }}> ⚠️ sem estoque</span>}
@@ -284,38 +232,16 @@ export default function NovoPedido() {
             </span>
           </div>
         ))}
-
-        {!mostrarItemAvulso ? (
-          <div onClick={() => setMostrarItemAvulso(true)} style={{ padding: '12px', color: '#22c55e', cursor: 'pointer', fontWeight: 'bold', textAlign: 'center' }}>
-            + Item avulso (não está no catálogo)
-          </div>
-        ) : (
-          <div style={{ padding: '12px', backgroundColor: '#0a0a0a', borderRadius: '8px', marginTop: '8px' }}>
-            <input placeholder="Nome do produto" value={avulsoNome} onChange={e => setAvulsoNome(e.target.value)} style={{ ...inStyle, marginBottom: '8px' }} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-              <select value={avulsoUnidade} onChange={e => setAvulsoUnidade(e.target.value)} style={inStyle}>
-                {UNIDADES_AVULSO.map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-              <input type="number" placeholder="Preço" value={avulsoPreco} onChange={e => setAvulsoPreco(e.target.value)} style={inStyle} />
-              <input type="number" placeholder="Qtd" value={avulsoQtd} onChange={e => setAvulsoQtd(e.target.value)} style={inStyle} />
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={adicionarItemAvulso} style={{ ...btnPrimario, flex: 1 }}>Adicionar ao Carrinho</button>
-              <button onClick={() => setMostrarItemAvulso(false)} style={btnCancelar}>Cancelar</button>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* ---------- CARRINHO ---------- */}
       {itens.length > 0 && (
         <div style={{ marginTop: '20px', padding: '15px', background: '#111', borderRadius: '10px' }}>
           <h4 style={{ marginTop: 0 }}>Carrinho</h4>
           {itens.map(i => (
             <div key={i.chave} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #222' }}>
               <span style={{ flex: 1 }}>
-                {i.nome} {i.avulso && <span style={{ color: '#f59e0b', fontSize: '0.75rem' }}>(avulso)</span>}
-                {!i.avulso && i.estoqueDisponivel !== undefined && i.quantidade > i.estoqueDisponivel && (
+                {i.nome}
+                {i.estoqueDisponivel !== undefined && i.quantidade > i.estoqueDisponivel && (
                   <div style={{ color: '#f59e0b', fontSize: '0.75rem' }}>⚠️ estoque: {i.estoqueDisponivel}</div>
                 )}
               </span>
@@ -332,15 +258,13 @@ export default function NovoPedido() {
             <label style={{ display: 'block', marginBottom: '8px', color: '#999', fontSize: '0.85rem' }}>Forma de Pagamento</label>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {FORMAS_PAGAMENTO.map(f => (
-                <button
-                  key={f.valor} type="button" onClick={() => setFormaPagamento(f.valor)}
+                <button key={f.valor} type="button" onClick={() => setFormaPagamento(f.valor)}
                   style={{
                     padding: '10px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem',
                     border: formaPagamento === f.valor ? '2px solid #22c55e' : '1px solid #333',
                     backgroundColor: formaPagamento === f.valor ? '#0f2417' : '#1a1a1a',
                     color: formaPagamento === f.valor ? '#22c55e' : '#ccc'
-                  }}
-                >{f.label}</button>
+                  }}>{f.label}</button>
               ))}
             </div>
           </div>
@@ -357,4 +281,3 @@ export default function NovoPedido() {
 const inStyle = { width: '100%', padding: '12px', backgroundColor: '#000', border: '1px solid #333', color: '#fff', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' as const };
 const btnQtd = { width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #333', backgroundColor: '#1a1a1a', color: '#fff', cursor: 'pointer', fontSize: '1rem' };
 const btnPrimario = { padding: '10px 16px', backgroundColor: '#22c55e', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold' as const, cursor: 'pointer' };
-const btnCancelar = { padding: '10px 16px', backgroundColor: 'transparent', color: '#ccc', border: '1px solid #333', borderRadius: '8px', cursor: 'pointer' };

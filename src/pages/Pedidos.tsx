@@ -4,22 +4,12 @@ import { getPedidos, atualizarStatusPedido, atualizarPagamentoPedido, excluirPed
 import { useAuth } from '../context/AuthContext';
 
 interface Pedido {
-  id: number;
-  valorTotal: number;
-  status: string;
-  formaPagamento: string;
-  statusPagamento: string;
-  createdAt: string;
-  cliente: { nome: string };
-  vendedor: { nome: string };
+  id: number; valorTotal: number; status: string; formaPagamento: string; statusPagamento: string;
+  createdAt: string; cliente: { nome: string }; vendedor: { nome: string };
 }
 
-const statusCores: Record<string, string> = {
-  PENDENTE: '#f59e0b', EM_ROTA: '#3b82f6', ENTREGUE: '#22c55e', CANCELADO: '#f87171'
-};
-const formaPagamentoLabel: Record<string, string> = {
-  DINHEIRO: '💵 Dinheiro', PIX: '📱 Pix', CARTAO: '💳 Cartão', FIADO: '📝 Fiado'
-};
+const statusCores: Record<string, string> = { PENDENTE: '#f59e0b', EM_ROTA: '#3b82f6', ENTREGUE: '#22c55e', CANCELADO: '#f87171' };
+const formaPagamentoLabel: Record<string, string> = { DINHEIRO: '💵 Dinheiro', PIX: '📱 Pix', CARTAO: '💳 Cartão', FIADO: '📝 Fiado' };
 
 export default function Pedidos() {
   const [lista, setLista] = useState<Pedido[]>([]);
@@ -42,13 +32,19 @@ export default function Pedidos() {
     if (!confirm('Excluir este pedido? O estoque será devolvido.')) return;
     await excluirPedido(id); carregar();
   };
+  const handleImprimir = () => window.print();
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h2 style={{ color: '#22c55e', marginTop: 0 }}>{ehAdmin ? 'Todos os Pedidos' : 'Meus Pedidos'}</h2>
+    <div style={{ padding: '20px' }} className="pedidos-container">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+        <h2 style={{ color: '#22c55e', margin: 0 }}>{ehAdmin ? 'Todos os Pedidos' : 'Meus Pedidos'}</h2>
+        <button onClick={handleImprimir} className="botao-imprimir" style={{ padding: '10px 16px', backgroundColor: '#22c55e', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+          🖨️ Imprimir
+        </button>
+      </div>
 
-      {carregando ? <p style={{ color: '#777' }}>Carregando...</p> : lista.length === 0 ? (
-        <p style={{ color: '#777' }}>Nenhum pedido por aqui ainda.</p>
+      {carregando ? <p style={{ color: '#777', marginTop: '20px' }}>Carregando...</p> : lista.length === 0 ? (
+        <p style={{ color: '#777', marginTop: '20px' }}>Nenhum pedido por aqui ainda.</p>
       ) : (
         <>
           <div className="tabela-desktop tabela-responsiva">
@@ -56,36 +52,39 @@ export default function Pedidos() {
               <thead>
                 <tr style={{ borderBottom: '2px solid #22c55e', textAlign: 'left' }}>
                   <th style={{ padding: '10px' }}>ID</th>
+                  <th style={{ padding: '10px' }}>Data</th>
                   <th style={{ padding: '10px' }}>Cliente</th>
                   {ehAdmin && <th style={{ padding: '10px' }}>Vendedor</th>}
                   <th style={{ padding: '10px' }}>Total</th>
                   <th style={{ padding: '10px' }}>Pagamento</th>
                   <th style={{ padding: '10px' }}>Status</th>
-                  <th style={{ padding: '10px' }}>Ações</th>
+                  <th style={{ padding: '10px' }} className="coluna-acoes">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {lista.map(p => (
                   <tr key={p.id} style={{ borderBottom: '1px solid #222' }}>
                     <td style={{ padding: '10px' }}>#{p.id}</td>
+                    <td style={{ padding: '10px' }}>{new Date(p.createdAt).toLocaleDateString('pt-BR')}</td>
                     <td style={{ padding: '10px' }}>{p.cliente?.nome}</td>
                     {ehAdmin && <td style={{ padding: '10px' }}>{p.vendedor?.nome}</td>}
                     <td style={{ padding: '10px' }}>R$ {(p.valorTotal || 0).toFixed(2)}</td>
                     <td style={{ padding: '10px' }}>
                       {formaPagamentoLabel[p.formaPagamento] || p.formaPagamento}
                       {p.statusPagamento === 'PENDENTE' && (
-                        <span onClick={() => marcarPago(p.id)} style={{ marginLeft: '8px', color: '#f87171', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}>(marcar pago)</span>
+                        <span onClick={() => marcarPago(p.id)} className="acao-nao-imprimir" style={{ marginLeft: '8px', color: '#f87171', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}>(marcar pago)</span>
                       )}
                     </td>
                     <td style={{ padding: '10px' }}>
-                      <select value={p.status} onChange={(e) => mudarStatus(p.id, e.target.value)} style={{ backgroundColor: '#111', color: statusCores[p.status], border: '1px solid #333', borderRadius: '6px', padding: '6px' }}>
+                      <span className="status-texto-impressao" style={{ color: statusCores[p.status] }}>{p.status}</span>
+                      <select value={p.status} onChange={(e) => mudarStatus(p.id, e.target.value)} className="acao-nao-imprimir" style={{ backgroundColor: '#111', color: statusCores[p.status], border: '1px solid #333', borderRadius: '6px', padding: '6px' }}>
                         <option value="PENDENTE">PENDENTE</option>
                         <option value="EM_ROTA">EM ROTA</option>
                         <option value="ENTREGUE">ENTREGUE</option>
                         <option value="CANCELADO">CANCELADO</option>
                       </select>
                     </td>
-                    <td style={{ padding: '10px' }}>
+                    <td style={{ padding: '10px' }} className="coluna-acoes acao-nao-imprimir">
                       <Link to={`/pedido/${p.id}/editar`} style={{ marginRight: '8px', color: '#3b82f6', textDecoration: 'none' }}>Editar</Link>
                       {ehAdmin && <button onClick={() => handleExcluir(p.id)} style={{ background: 'none', border: '1px solid #f8717150', color: '#f87171', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer' }}>Excluir</button>}
                     </td>
@@ -127,6 +126,19 @@ export default function Pedidos() {
           </div>
         </>
       )}
+
+      <style>{`
+        .status-texto-impressao { display: none; }
+        @media print {
+          body { background-color: #fff !important; color: #000 !important; }
+          .pedidos-container { padding: 0 !important; }
+          .botao-imprimir, .acao-nao-imprimir, .coluna-acoes { display: none !important; }
+          .status-texto-impressao { display: inline !important; font-weight: bold; }
+          .cards-mobile { display: none !important; }
+          .tabela-desktop { display: table !important; }
+          table, td, th { background-color: #fff !important; color: #000 !important; border-color: #ccc !important; }
+        }
+      `}</style>
     </div>
   );
 }
