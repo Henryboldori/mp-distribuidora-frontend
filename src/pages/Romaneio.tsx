@@ -17,9 +17,12 @@ export default function Romaneio() {
 
   const handleImprimir = () => window.print();
 
+  // Junta catalogo + avulsos numa lista unica, so pra impressao simples
+  const todosItens = dados ? [...dados.itensCatalogo, ...dados.itensAvulsos].sort((a, b) => b.quantidade - a.quantidade) : [];
+
   return (
-    <div style={{ padding: '20px' }} className="romaneio-container">
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', flexWrap: 'wrap', gap: '15px' }}>
+    <div style={{ padding: '20px' }}>
+      <header className="tela-nao-imprimir" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', flexWrap: 'wrap', gap: '15px' }}>
         <div>
           <h2 style={{ margin: 0, color: '#22c55e' }}>📋 Romaneio de Carga</h2>
           <p style={{ color: '#777', margin: '5px 0 0 0', fontSize: '0.85rem' }}>Soma de todos os pedidos pendentes/em rota do dia</p>
@@ -30,94 +33,77 @@ export default function Romaneio() {
         </div>
       </header>
 
-      {carregando ? <p style={{ color: '#777' }}>Carregando...</p> : dados && (
+      {carregando ? <p className="tela-nao-imprimir" style={{ color: '#777' }}>Carregando...</p> : dados && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '15px', marginBottom: '25px' }}>
-            <div style={{ backgroundColor: '#111', padding: '18px', borderRadius: '12px', border: '1px solid #222' }}>
-              <div style={{ color: '#777', fontSize: '0.75rem' }}>PEDIDOS NA ROTA</div>
-              <div style={{ color: '#fff', fontSize: '1.4rem', fontWeight: 'bold' }}>{dados.totalPedidos}</div>
+          {/* ---------- TELA (detalhado) ---------- */}
+          <div className="tela-nao-imprimir">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '15px', marginBottom: '25px' }}>
+              <div style={{ backgroundColor: '#111', padding: '18px', borderRadius: '12px', border: '1px solid #222' }}>
+                <div style={{ color: '#777', fontSize: '0.75rem' }}>PEDIDOS NA ROTA</div>
+                <div style={{ color: '#fff', fontSize: '1.4rem', fontWeight: 'bold' }}>{dados.totalPedidos}</div>
+              </div>
+              <div style={{ backgroundColor: '#111', padding: '18px', borderRadius: '12px', border: '1px solid #222' }}>
+                <div style={{ color: '#777', fontSize: '0.75rem' }}>ITENS DIFERENTES</div>
+                <div style={{ color: '#fff', fontSize: '1.4rem', fontWeight: 'bold' }}>{todosItens.length}</div>
+              </div>
             </div>
-            <div style={{ backgroundColor: '#111', padding: '18px', borderRadius: '12px', border: '1px solid #222' }}>
-              <div style={{ color: '#777', fontSize: '0.75rem' }}>ITENS DO CATÁLOGO</div>
-              <div style={{ color: '#fff', fontSize: '1.4rem', fontWeight: 'bold' }}>{dados.itensCatalogo.length}</div>
-            </div>
-            <div style={{ backgroundColor: '#111', padding: '18px', borderRadius: '12px', border: '1px solid #222' }}>
-              <div style={{ color: '#777', fontSize: '0.75rem' }}>ITENS AVULSOS</div>
-              <div style={{ color: '#fff', fontSize: '1.4rem', fontWeight: 'bold' }}>{dados.itensAvulsos.length}</div>
-            </div>
+
+            {todosItens.length === 0 ? (
+              <p style={{ color: '#666' }}>Nenhum item pendente para essa data.</p>
+            ) : (
+              <section style={{ backgroundColor: '#0a0a0a', borderRadius: '15px', border: '1px solid #222', overflow: 'hidden', marginBottom: '20px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>Produto</th>
+                      <th style={thStyle}>Unidade</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Qtd Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {todosItens.map((item: any, idx: number) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #111' }}>
+                        <td style={{ ...tdStyle, fontWeight: 'bold', color: '#fff' }}>{item.nome} {!item.produtoId && <span style={{ color: '#f59e0b', fontSize: '0.75rem' }}>(avulso)</span>}</td>
+                        <td style={tdStyle}>{item.unidade}</td>
+                        <td style={{ ...tdStyle, textAlign: 'right', color: '#4ade80', fontSize: '1.1rem', fontWeight: 'bold' }}>{item.quantidade}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+            )}
+
+            <section style={{ backgroundColor: '#0a0a0a', borderRadius: '15px', border: '1px solid #222', padding: '20px' }}>
+              <h3 style={{ marginTop: 0, fontSize: '1rem' }}>Pedidos incluídos</h3>
+              {dados.pedidos.map((p: any) => (
+                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #151515', fontSize: '0.9rem', color: '#ccc' }}>
+                  <span>#{p.id} — {p.cliente} {p.vendedor && `(${p.vendedor})`}</span>
+                  <span>{p.qtdItens} itens — R$ {p.valorTotal.toFixed(2)}</span>
+                </div>
+              ))}
+            </section>
           </div>
 
-          <section style={{ backgroundColor: '#0a0a0a', borderRadius: '15px', border: '1px solid #222', overflow: 'hidden', marginBottom: '20px' }}>
-            <h3 style={{ padding: '20px 20px 0', margin: 0, fontSize: '1rem' }}>Produtos do Catálogo</h3>
-            {dados.itensCatalogo.length === 0 ? (
-              <p style={{ padding: '20px', color: '#666' }}>Nenhum item de catálogo pendente para essa data.</p>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px' }}>
-                <thead>
-                  <tr>
-                    <th style={thStyle}>Produto</th>
-                    <th style={thStyle}>Categoria</th>
-                    <th style={thStyle}>Unidade</th>
-                    <th style={{ ...thStyle, textAlign: 'right' }}>Qtd Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dados.itensCatalogo.map((item: any) => (
-                    <tr key={item.produtoId} style={{ borderBottom: '1px solid #111' }}>
-                      <td style={{ ...tdStyle, fontWeight: 'bold', color: '#fff' }}>{item.nome}</td>
-                      <td style={tdStyle}>{item.categoria}</td>
-                      <td style={tdStyle}>{item.unidade}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right', color: '#4ade80', fontSize: '1.1rem', fontWeight: 'bold' }}>{item.quantidade}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </section>
-
-          {dados.itensAvulsos.length > 0 && (
-            <section style={{ backgroundColor: '#0a0a0a', borderRadius: '15px', border: '1px solid #222', overflow: 'hidden', marginBottom: '20px' }}>
-              <h3 style={{ padding: '20px 20px 0', margin: 0, fontSize: '1rem', color: '#f59e0b' }}>Itens Avulsos (fora do catálogo)</h3>
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px' }}>
-                <thead>
-                  <tr>
-                    <th style={thStyle}>Item</th>
-                    <th style={thStyle}>Unidade</th>
-                    <th style={{ ...thStyle, textAlign: 'right' }}>Qtd Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dados.itensAvulsos.map((item: any, idx: number) => (
-                    <tr key={idx} style={{ borderBottom: '1px solid #111' }}>
-                      <td style={{ ...tdStyle, fontWeight: 'bold', color: '#fff' }}>{item.nome}</td>
-                      <td style={tdStyle}>{item.unidade}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right', color: '#f59e0b', fontSize: '1.1rem', fontWeight: 'bold' }}>{item.quantidade}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
-          )}
-
-          <section style={{ backgroundColor: '#0a0a0a', borderRadius: '15px', border: '1px solid #222', padding: '20px' }}>
-            <h3 style={{ marginTop: 0, fontSize: '1rem' }}>Pedidos incluídos</h3>
-            {dados.pedidos.map((p: any) => (
-              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #151515', fontSize: '0.9rem', color: '#ccc' }}>
-                <span>#{p.id} — {p.cliente} {p.vendedor && `(${p.vendedor})`}</span>
-                <span>{p.qtdItens} itens — R$ {p.valorTotal.toFixed(2)}</span>
-              </div>
-            ))}
-          </section>
+          {/* ---------- IMPRESSÃO (só produto + quantidade, uma folha) ---------- */}
+          <div className="somente-impressao">
+            <h2>Romaneio — {new Date(data + 'T12:00:00').toLocaleDateString('pt-BR')}</h2>
+            <ul className="lista-romaneio-impressao">
+              {todosItens.map((item: any, idx: number) => (
+                <li key={idx}>{item.nome}: {item.quantidade} {item.unidade}</li>
+              ))}
+            </ul>
+          </div>
         </>
       )}
 
       <style>{`
+        .somente-impressao { display: none; }
         @media print {
-          body { background-color: #fff !important; color: #000 !important; }
-          .romaneio-container { padding: 0 !important; }
-          header button, header input { display: none !important; }
-          section, div { background-color: #fff !important; border-color: #ddd !important; color: #000 !important; }
-          th { color: #444 !important; }
+          .tela-nao-imprimir { display: none !important; }
+          .somente-impressao { display: block !important; }
+          body { background: #fff !important; color: #000 !important; }
+          .lista-romaneio-impressao { list-style: none; padding: 0; font-size: 1.1rem; }
+          .lista-romaneio-impressao li { padding: 6px 0; border-bottom: 1px solid #ddd; }
         }
       `}</style>
     </div>

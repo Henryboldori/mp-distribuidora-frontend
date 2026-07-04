@@ -7,12 +7,13 @@ interface Produto { id: number; nome: string; unidade: string; preco: number; de
 
 interface ItemCarrinho {
   chave: string;
-  produtoId: number;
+  produtoId?: number;
   nome: string;
   unidade: string;
   precoUnit: number;
   quantidade: number;
   estoqueDisponivel?: number;
+  avulso: boolean;
 }
 
 const FORMAS_PAGAMENTO = [
@@ -21,6 +22,8 @@ const FORMAS_PAGAMENTO = [
   { valor: 'CARTAO', label: '💳 Cartão' },
   { valor: 'FIADO', label: '📝 Fiado (a prazo)' }
 ];
+
+const UNIDADES_AVULSO = ['Unidade', 'Caixa', 'Fardo', 'Garrafa', 'Pacote', 'Litro', 'Kg'];
 
 export default function NovoPedido() {
   const { id } = useParams();
@@ -43,6 +46,12 @@ export default function NovoPedido() {
   const [novoClienteTelefone, setNovoClienteTelefone] = useState('');
   const [novoClienteEndereco, setNovoClienteEndereco] = useState('');
 
+  const [mostrarItemAvulso, setMostrarItemAvulso] = useState(false);
+  const [avulsoNome, setAvulsoNome] = useState('');
+  const [avulsoUnidade, setAvulsoUnidade] = useState('Unidade');
+  const [avulsoPreco, setAvulsoPreco] = useState('');
+  const [avulsoQtd, setAvulsoQtd] = useState('1');
+
   useEffect(() => {
     async function carregarDados() {
       try {
@@ -54,14 +63,15 @@ export default function NovoPedido() {
           const pedido = await getPedido(Number(id));
           setClienteSel(pedido.cliente);
           setFormaPagamento(pedido.formaPagamento);
-          setItens(pedido.itens.filter((i: any) => i.produtoId).map((i: any) => ({
-            chave: `prod-${i.produtoId}`,
-            produtoId: i.produtoId,
-            nome: i.produto?.nome || 'Produto',
-            unidade: i.produto?.unidade || 'Unidade',
+          setItens(pedido.itens.map((i: any) => ({
+            chave: i.produtoId ? `prod-${i.produtoId}` : `avulso-${i.id}`,
+            produtoId: i.produtoId || undefined,
+            nome: i.produto ? i.produto.nome : i.nomeAvulso,
+            unidade: i.produto ? i.produto.unidade : i.unidadeAvulso,
             precoUnit: i.precoUnit,
             quantidade: i.quantidade,
-            estoqueDisponivel: i.produto?.estoque
+            estoqueDisponivel: i.produto?.estoque,
+            avulso: !i.produtoId
           })));
         }
       } catch (err: any) {
@@ -93,23 +103,31 @@ export default function NovoPedido() {
       setClientes(prev => [...prev, novo]);
       selecionarCliente(novo);
       setNovoClienteTelefone(''); setNovoClienteEndereco('');
-    } catch (err: any) {
-      setErro(err.message);
-    }
+    } catch (err: any) { setErro(err.message); }
   };
 
   const produtosFiltrados = buscaProduto ? produtos.filter(p => p.nome.toLowerCase().includes(buscaProduto.toLowerCase())) : produtos;
   const precoComDesconto = (p: Produto) => (p.preco || 0) * (1 - (p.desconto || 0) / 100);
 
-  const adicionarItem = (produto: Produto) => {
+  const adicionarItemCatalogo = (produto: Produto) => {
     setItens(prev => {
       const existente = prev.find(i => i.produtoId === produto.id);
       if (existente) return prev.map(i => i.produtoId === produto.id ? { ...i, quantidade: i.quantidade + 1 } : i);
       return [...prev, {
         chave: `prod-${produto.id}`, produtoId: produto.id, nome: produto.nome, unidade: produto.unidade,
-        precoUnit: precoComDesconto(produto), quantidade: 1, estoqueDisponivel: produto.estoque
+        precoUnit: precoComDesconto(produto), quantidade: 1, estoqueDisponivel: produto.estoque, avulso: false
       }];
     });
+  };
+
+  const adicionarItemAvulso = () => {
+    if (!avulsoNome.trim() || !avulsoPreco) { setErro('Preencha nome e preço do item.'); return; }
+    setErro('');
+    setItens(prev => [...prev, {
+      chave: `avulso-${Date.now()}`, nome: avulsoNome.trim(), unidade: avulsoUnidade,
+      precoUnit: Number(avulsoPreco), quantidade: Number(avulsoQtd) || 1, avulso: true
+    }]);
+    setAvulsoNome(''); setAvulsoPreco(''); setAvulsoQtd('1'); setMostrarItemAvulso(false);
   };
 
   const alterarQuantidade = (chave: string, delta: number) => {
@@ -120,9 +138,12 @@ export default function NovoPedido() {
 
   const finalizarPedido = async () => {
     setErro('');
-    if (!clienteSel || itens.length === 0) { setErro('Selecione um cliente e ao menos um produto!'); return; }
+    if (!clienteSel || itens.length === 0) { setErro('Selecione um cliente e ao menos um item!'); return; }
 
-    const itensEnvio = itens.map(i => ({ produtoId: i.produtoId, quantidade: i.quantidade, precoUnit: i.precoUnit }));
+    const itensEnvio = itens.map(i => i.avulso
+      ? { nomeAvulso: i.nome, unidadeAvulso: i.unidade, quantidade: i.quantidade, precoUnit: i.precoUnit }
+      : { produtoId: i.produtoId, quantidade: i.quantidade, precoUnit: i.precoUnit }
+    );
 
     try {
       if (modoEdicao && id) {
@@ -139,9 +160,7 @@ export default function NovoPedido() {
       if (telefone) window.open(`https://wa.me/55${telefone}?text=${encodeURIComponent(texto)}`, '_blank');
 
       setItens([]); setClienteSel(null); setFormaPagamento('DINHEIRO');
-    } catch (err: any) {
-      setErro(err.message);
-    }
+    } catch (err: any) { setErro(err.message); }
   };
 
   const enviarWhatsapp = () => {
@@ -219,9 +238,9 @@ export default function NovoPedido() {
       </div>
 
       <div style={{ background: '#111', padding: '15px', borderRadius: '10px' }}>
-        <input placeholder="Buscar produto..." value={buscaProduto} onChange={e => setBuscaProduto(e.target.value)} style={{ ...inStyle, marginBottom: '10px' }} />
+        <input placeholder="Buscar produto no catálogo..." value={buscaProduto} onChange={e => setBuscaProduto(e.target.value)} style={{ ...inStyle, marginBottom: '10px' }} />
         {produtosFiltrados.map(p => (
-          <div key={p.id} onClick={() => adicionarItem(p)} style={{ padding: '12px', borderBottom: '1px solid #222', display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }}>
+          <div key={p.id} onClick={() => adicionarItemCatalogo(p)} style={{ padding: '12px', borderBottom: '1px solid #222', display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }}>
             <span>
               {p.nome} <span style={{ color: '#666', fontSize: '0.8rem' }}>({p.unidade})</span>
               {p.estoque <= 0 && <span style={{ color: '#f59e0b', fontSize: '0.8rem' }}> ⚠️ sem estoque</span>}
@@ -232,6 +251,27 @@ export default function NovoPedido() {
             </span>
           </div>
         ))}
+
+        {!mostrarItemAvulso ? (
+          <div onClick={() => setMostrarItemAvulso(true)} style={{ padding: '12px', color: '#22c55e', cursor: 'pointer', fontWeight: 'bold', textAlign: 'center', marginTop: '4px' }}>
+            + Produto que não está no catálogo
+          </div>
+        ) : (
+          <div style={{ padding: '12px', backgroundColor: '#0a0a0a', borderRadius: '8px', marginTop: '8px' }}>
+            <input placeholder="Nome do produto" value={avulsoNome} onChange={e => setAvulsoNome(e.target.value)} style={{ ...inStyle, marginBottom: '8px' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+              <select value={avulsoUnidade} onChange={e => setAvulsoUnidade(e.target.value)} style={inStyle}>
+                {UNIDADES_AVULSO.map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
+              <input type="number" placeholder="Preço" value={avulsoPreco} onChange={e => setAvulsoPreco(e.target.value)} style={inStyle} />
+              <input type="number" placeholder="Qtd" value={avulsoQtd} onChange={e => setAvulsoQtd(e.target.value)} style={inStyle} />
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={adicionarItemAvulso} style={{ ...btnPrimario, flex: 1 }}>Adicionar ao Carrinho</button>
+              <button onClick={() => setMostrarItemAvulso(false)} style={btnCancelar}>Cancelar</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {itens.length > 0 && (
@@ -240,8 +280,8 @@ export default function NovoPedido() {
           {itens.map(i => (
             <div key={i.chave} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #222' }}>
               <span style={{ flex: 1 }}>
-                {i.nome}
-                {i.estoqueDisponivel !== undefined && i.quantidade > i.estoqueDisponivel && (
+                {i.nome} {i.avulso && <span style={{ color: '#f59e0b', fontSize: '0.75rem' }}>(fora do catálogo)</span>}
+                {!i.avulso && i.estoqueDisponivel !== undefined && i.quantidade > i.estoqueDisponivel && (
                   <div style={{ color: '#f59e0b', fontSize: '0.75rem' }}>⚠️ estoque: {i.estoqueDisponivel}</div>
                 )}
               </span>
@@ -281,3 +321,4 @@ export default function NovoPedido() {
 const inStyle = { width: '100%', padding: '12px', backgroundColor: '#000', border: '1px solid #333', color: '#fff', borderRadius: '8px', outline: 'none', boxSizing: 'border-box' as const };
 const btnQtd = { width: '28px', height: '28px', borderRadius: '6px', border: '1px solid #333', backgroundColor: '#1a1a1a', color: '#fff', cursor: 'pointer', fontSize: '1rem' };
 const btnPrimario = { padding: '10px 16px', backgroundColor: '#22c55e', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold' as const, cursor: 'pointer' };
+const btnCancelar = { padding: '10px 16px', backgroundColor: 'transparent', color: '#ccc', border: '1px solid #333', borderRadius: '8px', cursor: 'pointer' };
