@@ -15,35 +15,50 @@ const formaPagamentoLabel: Record<string, string> = { DINHEIRO: '💵 Dinheiro',
 export default function Pedidos() {
   const [lista, setLista] = useState<Pedido[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [dataFiltro, setDataFiltro] = useState(''); // '' = todos os dias
   const { usuario } = useAuth();
   const ehAdmin = usuario?.role === 'ADMIN';
 
-  async function carregar() {
+  async function carregar(data?: string) {
     setCarregando(true);
-    try { setLista(await getPedidos()); }
+    try { setLista(await getPedidos(data ? { data } : undefined)); }
     catch (err) { console.error(err); }
     finally { setCarregando(false); }
   }
 
-  useEffect(() => { carregar(); }, []);
+  useEffect(() => { carregar(dataFiltro || undefined); }, [dataFiltro]);
 
-  const mudarStatus = async (id: number, status: string) => { await atualizarStatusPedido(id, status); carregar(); };
-  const marcarPago = async (id: number) => { await atualizarPagamentoPedido(id, 'PAGO'); carregar(); };
+  const mudarStatus = async (id: number, status: string) => { await atualizarStatusPedido(id, status); carregar(dataFiltro || undefined); };
+  const marcarPago = async (id: number) => { await atualizarPagamentoPedido(id, 'PAGO'); carregar(dataFiltro || undefined); };
   const handleExcluir = async (id: number) => {
     if (!confirm('Excluir este pedido? O estoque será devolvido.')) return;
-    await excluirPedido(id); carregar();
+    await excluirPedido(id); carregar(dataFiltro || undefined);
   };
   const handleImprimir = () => window.print();
 
   const nomeItem = (i: { produto?: { nome: string }; nomeAvulso?: string }) => i.produto ? i.produto.nome : (i.nomeAvulso || 'Item');
+  const listaItens = (p: Pedido) => p.itens.map((i, idx) => `${i.quantidade}x ${nomeItem(i)}`).join(', ');
 
   return (
     <div style={{ padding: '20px' }}>
       <div className="tela-nao-imprimir" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <h2 style={{ color: '#22c55e', margin: 0 }}>{ehAdmin ? 'Todos os Pedidos' : 'Meus Pedidos'}</h2>
-        <button onClick={handleImprimir} style={{ padding: '10px 16px', backgroundColor: '#22c55e', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
-          🖨️ Imprimir
-        </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            type="date"
+            value={dataFiltro}
+            onChange={e => setDataFiltro(e.target.value)}
+            style={{ padding: '10px', backgroundColor: '#111', border: '1px solid #333', color: '#fff', borderRadius: '8px' }}
+          />
+          {dataFiltro && (
+            <button onClick={() => setDataFiltro('')} style={{ padding: '10px 14px', backgroundColor: 'transparent', color: '#ccc', border: '1px solid #333', borderRadius: '8px', cursor: 'pointer' }}>
+              Limpar
+            </button>
+          )}
+          <button onClick={handleImprimir} style={{ padding: '10px 16px', backgroundColor: '#22c55e', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+            🖨️ Imprimir
+          </button>
+        </div>
       </div>
 
       {carregando ? <p className="tela-nao-imprimir" style={{ color: '#777', marginTop: '20px' }}>Carregando...</p> : lista.length === 0 ? (
@@ -57,8 +72,10 @@ export default function Pedidos() {
                 <thead>
                   <tr style={{ borderBottom: '2px solid #22c55e', textAlign: 'left' }}>
                     <th style={{ padding: '10px' }}>ID</th>
+                    <th style={{ padding: '10px' }}>Data</th>
                     <th style={{ padding: '10px' }}>Cliente</th>
                     {ehAdmin && <th style={{ padding: '10px' }}>Vendedor</th>}
+                    <th style={{ padding: '10px' }}>Itens</th>
                     <th style={{ padding: '10px' }}>Total</th>
                     <th style={{ padding: '10px' }}>Pagamento</th>
                     <th style={{ padding: '10px' }}>Status</th>
@@ -69,8 +86,10 @@ export default function Pedidos() {
                   {lista.map(p => (
                     <tr key={p.id} style={{ borderBottom: '1px solid #222' }}>
                       <td style={{ padding: '10px' }}>#{p.id}</td>
+                      <td style={{ padding: '10px', color: '#999', fontSize: '0.85rem' }}>{new Date(p.createdAt).toLocaleDateString('pt-BR')}</td>
                       <td style={{ padding: '10px' }}>{p.cliente?.nome}</td>
                       {ehAdmin && <td style={{ padding: '10px' }}>{p.vendedor?.nome}</td>}
+                      <td style={{ padding: '10px', color: '#ccc', fontSize: '0.85rem', maxWidth: '280px' }}>{listaItens(p)}</td>
                       <td style={{ padding: '10px' }}>R$ {(p.valorTotal || 0).toFixed(2)}</td>
                       <td style={{ padding: '10px' }}>
                         {formaPagamentoLabel[p.formaPagamento] || p.formaPagamento}
@@ -99,10 +118,16 @@ export default function Pedidos() {
             <div className="cards-mobile">
               {lista.map(p => (
                 <div key={p.id} className="card-mobile">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <span style={{ fontWeight: 'bold', color: '#fff' }}>#{p.id} — {p.cliente?.nome}</span>
                     <span style={{ color: '#22c55e', fontWeight: 'bold' }}>R$ {(p.valorTotal || 0).toFixed(2)}</span>
                   </div>
+                  <div style={{ color: '#777', fontSize: '0.8rem', marginBottom: '8px' }}>{new Date(p.createdAt).toLocaleDateString('pt-BR')}</div>
+
+                  <div style={{ color: '#ccc', fontSize: '0.85rem', marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #1f1f1f' }}>
+                    {listaItens(p)}
+                  </div>
+
                   {ehAdmin && <div className="card-mobile-linha"><span className="card-mobile-label">Vendedor</span><span className="card-mobile-valor">{p.vendedor?.nome}</span></div>}
                   <div className="card-mobile-linha">
                     <span className="card-mobile-label">Pagamento</span>

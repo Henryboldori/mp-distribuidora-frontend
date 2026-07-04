@@ -42,6 +42,9 @@ export default function NovoPedido() {
   const [erro, setErro] = useState('');
   const [pedidoConcluido, setPedidoConcluido] = useState<{ cliente: Cliente; total: number } | null>(null);
 
+  // Protege contra duplo clique/duplo toque disparando o pedido 2x
+  const [enviando, setEnviando] = useState(false);
+
   const [mostrarNovoCliente, setMostrarNovoCliente] = useState(false);
   const [novoClienteTelefone, setNovoClienteTelefone] = useState('');
   const [novoClienteEndereco, setNovoClienteEndereco] = useState('');
@@ -137,6 +140,9 @@ export default function NovoPedido() {
   const totalPedido = itens.reduce((acc, i) => acc + i.precoUnit * i.quantidade, 0);
 
   const finalizarPedido = async () => {
+    // Bloqueia cliques repetidos enquanto a primeira requisicao ainda esta em andamento
+    if (enviando) return;
+
     setErro('');
     if (!clienteSel || itens.length === 0) { setErro('Selecione um cliente e ao menos um item!'); return; }
 
@@ -145,6 +151,7 @@ export default function NovoPedido() {
       : { produtoId: i.produtoId, quantidade: i.quantidade, precoUnit: i.precoUnit }
     );
 
+    setEnviando(true);
     try {
       if (modoEdicao && id) {
         await atualizarPedido(Number(id), { clienteId: clienteSel.id, itens: itensEnvio, formaPagamento });
@@ -160,7 +167,11 @@ export default function NovoPedido() {
       if (telefone) window.open(`https://wa.me/55${telefone}?text=${encodeURIComponent(texto)}`, '_blank');
 
       setItens([]); setClienteSel(null); setFormaPagamento('DINHEIRO');
-    } catch (err: any) { setErro(err.message); }
+    } catch (err: any) {
+      setErro(err.message);
+    } finally {
+      setEnviando(false);
+    }
   };
 
   const enviarWhatsapp = () => {
@@ -309,8 +320,18 @@ export default function NovoPedido() {
             </div>
           </div>
 
-          <button onClick={finalizarPedido} style={{ width: '100%', padding: '15px', marginTop: '20px', backgroundColor: '#22c55e', color: '#000', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>
-            {modoEdicao ? 'Salvar Alterações' : `ENVIAR PEDIDO (R$ ${totalPedido.toFixed(2)})`}
+          <button
+            onClick={finalizarPedido}
+            disabled={enviando}
+            style={{
+              width: '100%', padding: '15px', marginTop: '20px',
+              backgroundColor: enviando ? '#1e6b3d' : '#22c55e',
+              color: '#000', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '16px',
+              cursor: enviando ? 'not-allowed' : 'pointer',
+              opacity: enviando ? 0.7 : 1
+            }}
+          >
+            {enviando ? 'Enviando...' : (modoEdicao ? 'Salvar Alterações' : `ENVIAR PEDIDO (R$ ${totalPedido.toFixed(2)})`)}
           </button>
         </div>
       )}
