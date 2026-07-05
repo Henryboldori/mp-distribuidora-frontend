@@ -5,17 +5,21 @@ import { useAuth } from '../context/AuthContext';
 
 interface Pedido {
   id: number; valorTotal: number; status: string; formaPagamento: string; statusPagamento: string;
-  createdAt: string; cliente: { nome: string }; vendedor: { nome: string };
-  itens: { quantidade: number; produto?: { nome: string }; nomeAvulso?: string }[];
+  createdAt: string; cliente: { nome: string; telefone?: string | null }; vendedor: { nome: string };
+  itens: { quantidade: number; precoUnit: number; produto?: { nome: string }; nomeAvulso?: string }[];
 }
 
 const statusCores: Record<string, string> = { PENDENTE: '#f59e0b', EM_ROTA: '#3b82f6', ENTREGUE: '#22c55e', CANCELADO: '#f87171' };
 const formaPagamentoLabel: Record<string, string> = { DINHEIRO: '💵 Dinheiro', PIX: '📱 Pix', CARTAO: '💳 Cartão', FIADO: '📝 Fiado' };
 
+// Numero fixo que recebe cada pedido registrado (loja)
+const WHATSAPP_NUMERO_LOJA = '5535998509060';
+
 export default function Pedidos() {
   const [lista, setLista] = useState<Pedido[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [dataFiltro, setDataFiltro] = useState(''); // '' = todos os dias
+  const [pedidoImprimindo, setPedidoImprimindo] = useState<Pedido | null>(null);
   const { usuario } = useAuth();
   const ehAdmin = usuario?.role === 'ADMIN';
 
@@ -34,10 +38,25 @@ export default function Pedidos() {
     if (!confirm('Excluir este pedido? O estoque será devolvido.')) return;
     await excluirPedido(id); carregar(dataFiltro || undefined);
   };
-  const handleImprimir = () => window.print();
+  const handleImprimirTudo = () => window.print();
 
   const nomeItem = (i: { produto?: { nome: string }; nomeAvulso?: string }) => i.produto ? i.produto.nome : (i.nomeAvulso || 'Item');
-  const listaItens = (p: Pedido) => p.itens.map((i, idx) => `${i.quantidade}x ${nomeItem(i)}`).join(', ');
+  const listaItens = (p: Pedido) => p.itens.map(i => `${i.quantidade}x ${nomeItem(i)}`).join(', ');
+
+  // Imprime SOMENTE um pedido, em formato de recibo estreito (80 colunas / matricial)
+  const imprimirRecibo = (p: Pedido) => {
+    setPedidoImprimindo(p);
+    setTimeout(() => {
+      window.print();
+      setPedidoImprimindo(null);
+    }, 100);
+  };
+
+  const enviarPedidoWhatsapp = (p: Pedido) => {
+    const linhas = p.itens.map(i => `${i.quantidade}x ${nomeItem(i)} - R$ ${(i.precoUnit * i.quantidade).toFixed(2)}`).join('\n');
+    const texto = `*NOVO PEDIDO #${p.id}*\nCliente: ${p.cliente?.nome}\nVendedor: ${p.vendedor?.nome || '-'}\nData: ${new Date(p.createdAt).toLocaleDateString('pt-BR')}\n\n${linhas}\n\n*Total: R$ ${(p.valorTotal || 0).toFixed(2)}*\nPagamento: ${formaPagamentoLabel[p.formaPagamento] || p.formaPagamento}`;
+    window.open(`https://wa.me/${WHATSAPP_NUMERO_LOJA}?text=${encodeURIComponent(texto)}`, '_blank');
+  };
 
   return (
     <div style={{ padding: '20px' }}>
@@ -55,8 +74,8 @@ export default function Pedidos() {
               Limpar
             </button>
           )}
-          <button onClick={handleImprimir} style={{ padding: '10px 16px', backgroundColor: '#22c55e', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
-            🖨️ Imprimir
+          <button onClick={handleImprimirTudo} style={{ padding: '10px 16px', backgroundColor: '#22c55e', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+            🖨️ Imprimir lista
           </button>
         </div>
       </div>
@@ -65,7 +84,7 @@ export default function Pedidos() {
         <p className="tela-nao-imprimir" style={{ color: '#777', marginTop: '20px' }}>Nenhum pedido por aqui ainda.</p>
       ) : (
         <>
-          {/* ---------- VERSÃO DE TELA (com filtros, edição, status) ---------- */}
+          {/* ---------- VERSÃO DE TELA ---------- */}
           <div className="tela-nao-imprimir">
             <div className="tabela-desktop tabela-responsiva">
               <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
@@ -106,8 +125,12 @@ export default function Pedidos() {
                         </select>
                       </td>
                       <td style={{ padding: '10px' }}>
-                        <Link to={`/pedido/${p.id}/editar`} style={{ marginRight: '8px', color: '#3b82f6', textDecoration: 'none' }}>Editar</Link>
-                        {ehAdmin && <button onClick={() => handleExcluir(p.id)} style={{ background: 'none', border: '1px solid #f8717150', color: '#f87171', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer' }}>Excluir</button>}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          <Link to={`/pedido/${p.id}/editar`} style={{ color: '#3b82f6', textDecoration: 'none' }}>Editar</Link>
+                          <button onClick={() => imprimirRecibo(p)} style={{ background: 'none', border: '1px solid #33333350', color: '#ccc', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>🖨️ Recibo</button>
+                          <button onClick={() => enviarPedidoWhatsapp(p)} style={{ background: 'none', border: '1px solid #25D36650', color: '#25D366', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>📲 WhatsApp</button>
+                          {ehAdmin && <button onClick={() => handleExcluir(p.id)} style={{ background: 'none', border: '1px solid #f8717150', color: '#f87171', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer' }}>Excluir</button>}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -144,43 +167,94 @@ export default function Pedidos() {
                       <option value="CANCELADO">CANCELADO</option>
                     </select>
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                    <Link to={`/pedido/${p.id}/editar`} style={{ flex: 1, textAlign: 'center', padding: '10px', background: 'none', border: '1px solid #3b82f650', color: '#3b82f6', borderRadius: '6px', textDecoration: 'none' }}>Editar</Link>
-                    {ehAdmin && <button onClick={() => handleExcluir(p.id)} style={{ flex: 1, background: 'none', border: '1px solid #f8717150', color: '#f87171', borderRadius: '6px', padding: '10px', cursor: 'pointer' }}>Excluir</button>}
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                    <Link to={`/pedido/${p.id}/editar`} style={{ flex: 1, minWidth: '80px', textAlign: 'center', padding: '10px', background: 'none', border: '1px solid #3b82f650', color: '#3b82f6', borderRadius: '6px', textDecoration: 'none' }}>Editar</Link>
+                    <button onClick={() => imprimirRecibo(p)} style={{ flex: 1, minWidth: '80px', background: 'none', border: '1px solid #33333350', color: '#ccc', borderRadius: '6px', padding: '10px', cursor: 'pointer' }}>🖨️ Recibo</button>
+                    <button onClick={() => enviarPedidoWhatsapp(p)} style={{ flex: 1, minWidth: '80px', background: 'none', border: '1px solid #25D36650', color: '#25D366', borderRadius: '6px', padding: '10px', cursor: 'pointer' }}>📲 Zap</button>
+                    {ehAdmin && <button onClick={() => handleExcluir(p.id)} style={{ flex: 1, minWidth: '80px', background: 'none', border: '1px solid #f8717150', color: '#f87171', borderRadius: '6px', padding: '10px', cursor: 'pointer' }}>Excluir</button>}
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* ---------- VERSÃO DE IMPRESSÃO (só data, cliente, itens, valor) ---------- */}
-          <div className="somente-impressao">
-            <h2>Lista de Pedidos</h2>
-            {lista.map(p => (
-              <div key={p.id} className="pedido-impresso">
-                <div className="pedido-impresso-header">
-                  <strong>{new Date(p.createdAt).toLocaleDateString('pt-BR')}</strong> — <strong>{p.cliente?.nome}</strong>
+          {/* ---------- IMPRESSÃO: LISTA COMPLETA (quando nao esta imprimindo um recibo individual) ---------- */}
+          {!pedidoImprimindo && (
+            <div className="somente-impressao-lista">
+              <h2>Lista de Pedidos</h2>
+              {lista.map(p => (
+                <div key={p.id} className="pedido-impresso">
+                  <div className="pedido-impresso-header">
+                    <strong>{new Date(p.createdAt).toLocaleDateString('pt-BR')}</strong> — <strong>{p.cliente?.nome}</strong>
+                  </div>
+                  <ul>
+                    {p.itens.map((i, idx) => <li key={idx}>{i.quantidade}x {nomeItem(i)}</li>)}
+                  </ul>
+                  <div className="pedido-impresso-total">Total: R$ {(p.valorTotal || 0).toFixed(2)}</div>
                 </div>
-                <ul>
-                  {p.itens.map((i, idx) => <li key={idx}>{i.quantidade}x {nomeItem(i)}</li>)}
-                </ul>
-                <div className="pedido-impresso-total">Total: R$ {(p.valorTotal || 0).toFixed(2)}</div>
+              ))}
+            </div>
+          )}
+
+          {/* ---------- IMPRESSÃO: RECIBO DE UM PEDIDO (80 colunas / matricial) ---------- */}
+          {pedidoImprimindo && (
+            <div className="somente-impressao-recibo">
+              <div className="recibo">
+                <div className="recibo-linha-dupla" />
+                <div className="recibo-centro">BEBIDAS PELICANO</div>
+                <div className="recibo-centro">PEDIDO #{pedidoImprimindo.id}</div>
+                <div className="recibo-linha-tracejada" />
+                <div>Data: {new Date(pedidoImprimindo.createdAt).toLocaleDateString('pt-BR')}</div>
+                <div>Cliente: {pedidoImprimindo.cliente?.nome}</div>
+                {pedidoImprimindo.vendedor?.nome && <div>Vendedor: {pedidoImprimindo.vendedor.nome}</div>}
+                <div className="recibo-linha-tracejada" />
+                {pedidoImprimindo.itens.map((i, idx) => (
+                  <div className="recibo-item" key={idx}>
+                    <span>{i.quantidade}x {nomeItem(i)}</span>
+                    <span>R$ {(i.precoUnit * i.quantidade).toFixed(2)}</span>
+                  </div>
+                ))}
+                <div className="recibo-linha-tracejada" />
+                <div className="recibo-item recibo-total">
+                  <span>TOTAL</span>
+                  <span>R$ {(pedidoImprimindo.valorTotal || 0).toFixed(2)}</span>
+                </div>
+                <div>Pagamento: {formaPagamentoLabel[pedidoImprimindo.formaPagamento] || pedidoImprimindo.formaPagamento}</div>
+                <div className="recibo-linha-dupla" />
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </>
       )}
 
       <style>{`
-        .somente-impressao { display: none; }
+        .somente-impressao-lista, .somente-impressao-recibo { display: none; }
+
         @media print {
+          @page { size: auto; margin: 10mm; }
           .tela-nao-imprimir { display: none !important; }
-          .somente-impressao { display: block !important; }
           body { background: #fff !important; color: #000 !important; }
+
+          /* Lista completa (impressao em A4 normal) */
+          .somente-impressao-lista { display: block !important; }
           .pedido-impresso { border-bottom: 1px solid #ccc; padding: 10px 0; }
           .pedido-impresso-header { font-size: 1rem; margin-bottom: 4px; }
           .pedido-impresso ul { margin: 4px 0; padding-left: 20px; }
           .pedido-impresso-total { font-weight: bold; margin-top: 4px; }
+
+          /* Recibo individual - largura de 80 colunas (formulario continuo matricial) */
+          .somente-impressao-recibo { display: block !important; }
+          .recibo {
+            width: 80ch;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            color: #000;
+          }
+          .recibo-centro { text-align: center; font-weight: bold; }
+          .recibo-linha-dupla { border-top: 2px solid #000; margin: 4px 0; }
+          .recibo-linha-tracejada { border-top: 1px dashed #000; margin: 4px 0; }
+          .recibo-item { display: flex; justify-content: space-between; padding: 2px 0; }
+          .recibo-total { font-weight: bold; font-size: 13px; }
         }
       `}</style>
     </div>

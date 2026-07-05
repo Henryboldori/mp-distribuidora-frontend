@@ -19,6 +19,7 @@ export default function Romaneio() {
 
   // Junta catalogo + avulsos numa lista unica, so pra impressao simples
   const todosItens = dados ? [...dados.itensCatalogo, ...dados.itensAvulsos].sort((a, b) => b.quantidade - a.quantidade) : [];
+  const dataFormatada = new Date(data + 'T12:00:00').toLocaleDateString('pt-BR');
 
   return (
     <div style={{ padding: '20px' }}>
@@ -84,14 +85,37 @@ export default function Romaneio() {
             </section>
           </div>
 
-          {/* ---------- IMPRESSÃO (só produto + quantidade, uma folha) ---------- */}
+          {/* ---------- IMPRESSÃO (estilo relatório de impressora matricial) ---------- */}
           <div className="somente-impressao">
-            <h2>Romaneio — {new Date(data + 'T12:00:00').toLocaleDateString('pt-BR')}</h2>
-            <ul className="lista-romaneio-impressao">
-              {todosItens.map((item: any, idx: number) => (
-                <li key={idx}>{item.nome}: {item.quantidade} {item.unidade}</li>
-              ))}
-            </ul>
+            <div className="rel-cabecalho">
+              <span>BEBIDAS PELICANO</span>
+              <span>ROMANEIO DE CARGA</span>
+              <span>DATA: {dataFormatada}</span>
+            </div>
+            <div className="rel-linha-dupla" />
+
+            <div className="rel-linha rel-titulo">
+              <span className="rel-col-produto">PRODUTO</span>
+              <span className="rel-col-unid">UNID.</span>
+              <span className="rel-col-qtd">QTD</span>
+            </div>
+            <div className="rel-linha-tracejada" />
+
+            {todosItens.map((item: any, idx: number) => (
+              <div className="rel-linha" key={idx}>
+                <span className="rel-col-produto">
+                  {item.nome}{!item.produtoId ? ' (avulso)' : ''}
+                </span>
+                <span className="rel-col-unid">{item.unidade}</span>
+                <span className="rel-col-qtd">{item.quantidade}</span>
+              </div>
+            ))}
+
+            <div className="rel-linha-tracejada" />
+            <div className="rel-rodape">
+              <span>TOTAL DE PEDIDOS: {dados.totalPedidos}</span>
+              <span>ITENS DIFERENTES: {todosItens.length}</span>
+            </div>
           </div>
         </>
       )}
@@ -99,11 +123,44 @@ export default function Romaneio() {
       <style>{`
         .somente-impressao { display: none; }
         @media print {
+          @page { size: auto; margin: 10mm; }
           .tela-nao-imprimir { display: none !important; }
-          .somente-impressao { display: block !important; }
+          .somente-impressao {
+            display: block !important;
+            font-family: 'Courier New', Courier, monospace;
+            color: #000;
+          }
           body { background: #fff !important; color: #000 !important; }
-          .lista-romaneio-impressao { list-style: none; padding: 0; font-size: 1.1rem; }
-          .lista-romaneio-impressao li { padding: 6px 0; border-bottom: 1px solid #ddd; }
+
+          .rel-cabecalho {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 0.95rem;
+            margin-bottom: 6px;
+          }
+          .rel-linha-dupla { border-top: 2px solid #000; margin: 4px 0 8px 0; }
+          .rel-linha-tracejada { border-top: 1px dashed #000; margin: 6px 0; }
+
+          .rel-linha {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            padding: 2px 0;
+          }
+          .rel-titulo { font-weight: bold; }
+
+          .rel-col-produto { flex: 3; text-align: left; padding-right: 8px; }
+          .rel-col-unid { flex: 1; text-align: center; }
+          .rel-col-qtd { flex: 1; text-align: right; }
+
+          .rel-rodape {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 0.85rem;
+            margin-top: 8px;
+          }
         }
       `}</style>
     </div>
