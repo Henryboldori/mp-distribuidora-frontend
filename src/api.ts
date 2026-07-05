@@ -189,3 +189,16 @@ export async function getRelatorio(inicio?: string, fim?: string, vendedorId?: n
   const res = await fetch(`${API}/relatorios${qs}`, { headers: getHeaders() });
   return tratarResposta(res);
 }
+
+// ---------- CONTAS A RECEBER (inadimplentes) ----------
+export async function getInadimplentes() {
+  const res = await fetch(`${API}/relatorios/inadimplentes`, { headers: getHeaders() });
+  return tratarResposta(res);
+}
+
+// ---------- CLIENTES INATIVOS ----------
+export async function getClientesInativos(dias?: number) {
+  const qs = dias ? `?dias=${dias}` : '';
+  const res = await fetch(`${API}/relatorios/clientes-inativos${qs}`, { headers: getHeaders() });
+  return tratarResposta(res);
+}
