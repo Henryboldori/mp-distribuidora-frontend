@@ -19,6 +19,8 @@ export default function Clientes() {
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState('');
   const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [salvando, setSalvando] = useState(false); // protege contra duplo clique/duplo submit
+  const [selecionados, setSelecionados] = useState<Set<number>>(new Set());
 
   const [nome, setNome] = useState('');
   const [endereco, setEndereco] = useState('');
@@ -45,9 +47,12 @@ export default function Clientes() {
 
   const handleSalvar = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (salvando) return; // bloqueia cliques repetidos enquanto a requisicao anterior ainda esta em andamento
+
     setErro('');
     if (!nome || !endereco) { setErro('Preencha Nome e Endereço!'); return; }
 
+    setSalvando(true);
     try {
       if (editandoId) {
         await atualizarCliente(editandoId, { nome, endereco, telefone, categoria });
@@ -55,9 +60,11 @@ export default function Clientes() {
         await criarCliente({ nome, endereco, telefone, categoria });
       }
       limparForm();
-      carregar();
+      await carregar();
     } catch (err: any) {
       setErro(err.message);
+    } finally {
+      setSalvando(false);
     }
   };
 
@@ -85,6 +92,35 @@ export default function Clientes() {
     c.endereco.toLowerCase().includes(busca.toLowerCase())
   );
 
+  // ---------- SELECAO EM LOTE ----------
+  const toggleSelecionado = (id: number) => {
+    setSelecionados(prev => {
+      const novo = new Set(prev);
+      if (novo.has(id)) novo.delete(id); else novo.add(id);
+      return novo;
+    });
+  };
+
+  const todosSelecionados = clientesFiltrados.length > 0 && clientesFiltrados.every(c => selecionados.has(c.id));
+  const toggleSelecionarTodos = () => {
+    setSelecionados(todosSelecionados ? new Set() : new Set(clientesFiltrados.map(c => c.id)));
+  };
+
+  const excluirSelecionados = async () => {
+    if (selecionados.size === 0) return;
+    if (!confirm(`Excluir ${selecionados.size} cliente(s) selecionado(s)? Clientes com pedidos vinculados não serão excluídos.`)) return;
+
+    for (const id of selecionados) {
+      try {
+        await excluirCliente(id);
+      } catch (err) {
+        console.error(`Erro ao excluir cliente ${id}:`, err);
+      }
+    }
+    setSelecionados(new Set());
+    carregar();
+  };
+
   return (
     <div style={{ padding: '20px' }}>
       <section style={cardStyle}>
@@ -110,7 +146,9 @@ export default function Clientes() {
             </select>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button type="submit" style={btnPrimaryStyle}>{editandoId ? 'Salvar' : 'Adicionar'}</button>
+            <button type="submit" disabled={salvando} style={{ ...btnPrimaryStyle, opacity: salvando ? 0.7 : 1, cursor: salvando ? 'not-allowed' : 'pointer' }}>
+              {salvando ? 'Salvando...' : (editandoId ? 'Salvar' : 'Adicionar')}
+            </button>
             {editandoId && <button type="button" onClick={limparForm} style={btnCancelStyle}>Cancelar</button>}
           </div>
         </form>
@@ -126,6 +164,22 @@ export default function Clientes() {
           />
         </div>
 
+        {usuario?.role === 'ADMIN' && selecionados.size > 0 && (
+          <div style={{
+            display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap',
+            backgroundColor: '#1a1010', border: '1px solid #f8717150', borderRadius: '10px',
+            padding: '12px 16px', marginBottom: '15px'
+          }}>
+            <span style={{ color: '#f87171', fontWeight: 'bold' }}>{selecionados.size} selecionado(s)</span>
+            <button onClick={excluirSelecionados} style={{ padding: '8px 14px', backgroundColor: '#1a1a1a', color: '#f87171', border: '1px solid #f8717150', borderRadius: '8px', cursor: 'pointer' }}>
+              🗑️ Excluir selecionados
+            </button>
+            <button onClick={() => setSelecionados(new Set())} style={{ padding: '8px 14px', backgroundColor: 'transparent', color: '#999', border: '1px solid #333', borderRadius: '8px', cursor: 'pointer' }}>
+              Limpar seleção
+            </button>
+          </div>
+        )}
+
         {carregando ? <p style={{ color: '#777' }}>Carregando...</p> : (
           <>
             {/* Tabela para desktop */}
@@ -133,6 +187,9 @@ export default function Clientes() {
               <table style={tableStyle}>
                 <thead>
                   <tr>
+                    {usuario?.role === 'ADMIN' && (
+                      <th style={thStyle}><input type="checkbox" checked={todosSelecionados} onChange={toggleSelecionarTodos} /></th>
+                    )}
                     <th style={thStyle}>Nome</th>
                     <th style={thStyle}>Categoria</th>
                     <th style={thStyle}>Endereço</th>
@@ -143,6 +200,11 @@ export default function Clientes() {
                 <tbody>
                   {clientesFiltrados.map(cliente => (
                     <tr key={cliente.id} style={trStyle}>
+                      {usuario?.role === 'ADMIN' && (
+                        <td style={tdStyle}>
+                          <input type="checkbox" checked={selecionados.has(cliente.id)} onChange={() => toggleSelecionado(cliente.id)} />
+                        </td>
+                      )}
                       <td style={{ ...tdStyle, fontWeight: 'bold', color: '#fff' }}>{cliente.nome}</td>
                       <td style={tdStyle}>{cliente.categoria || '-'}</td>
                       <td style={tdStyle}>{cliente.endereco}</td>
@@ -163,7 +225,12 @@ export default function Clientes() {
             <div className="cards-mobile">
               {clientesFiltrados.map(cliente => (
                 <div key={cliente.id} className="card-mobile">
-                  <div style={{ fontWeight: 'bold', color: '#fff', fontSize: '1.05rem', marginBottom: '8px' }}>{cliente.nome}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    {usuario?.role === 'ADMIN' && (
+                      <input type="checkbox" checked={selecionados.has(cliente.id)} onChange={() => toggleSelecionado(cliente.id)} />
+                    )}
+                    <div style={{ fontWeight: 'bold', color: '#fff', fontSize: '1.05rem' }}>{cliente.nome}</div>
+                  </div>
                   <div className="card-mobile-linha"><span className="card-mobile-label">Categoria</span><span className="card-mobile-valor">{cliente.categoria || '-'}</span></div>
                   <div className="card-mobile-linha"><span className="card-mobile-label">Endereço</span><span className="card-mobile-valor">{cliente.endereco}</span></div>
                   <div className="card-mobile-linha"><span className="card-mobile-label">Telefone</span><span className="card-mobile-valor">{cliente.telefone || '-'}</span></div>
