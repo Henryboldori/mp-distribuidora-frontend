@@ -34,7 +34,6 @@ export default function ContasReceber() {
 
   const diasAtras = (data: string) => Math.floor((Date.now() - new Date(data).getTime()) / 86400000);
 
-  // Agrupa por cliente e ordena por quem esta devendo ha mais tempo
   const gruposClientes: GrupoCliente[] = (() => {
     const porCliente: Record<string, GrupoCliente> = {};
     pedidos.forEach(p => {
@@ -68,13 +67,15 @@ export default function ContasReceber() {
   // ---------- CLIENTES INATIVOS ----------
   const [diasLimite, setDiasLimite] = useState(20);
   const [inativos, setInativos] = useState<any[]>([]);
+  const [nuncaCompraram, setNuncaCompraram] = useState<any[]>([]);
   const [carregandoInativos, setCarregandoInativos] = useState(false);
 
   const carregarInativos = async (dias: number) => {
     setCarregandoInativos(true);
     try {
       const resultado = await getClientesInativos(dias);
-      setInativos(resultado.clientes);
+      setInativos(resultado.inativos);
+      setNuncaCompraram(resultado.nuncaCompraram);
     } catch (err) { console.error(err); }
     finally { setCarregandoInativos(false); }
   };
@@ -190,27 +191,48 @@ export default function ContasReceber() {
             </button>
           </div>
 
-          {carregandoInativos ? <p style={{ color: '#777' }}>Carregando...</p> : inativos.length === 0 ? (
-            <p style={{ color: '#777' }}>Nenhum cliente inativo encontrado nesse período. 🎉</p>
-          ) : (
-            <div style={{ backgroundColor: '#0a0a0a', borderRadius: '15px', border: '1px solid #222', overflow: 'hidden' }}>
-              {inativos.map((c: any) => (
-                <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid #151515', flexWrap: 'wrap', gap: '8px' }}>
-                  <div>
-                    <div style={{ color: '#fff', fontWeight: 'bold' }}>{c.nome}</div>
-                    <div style={{ color: '#777', fontSize: '0.8rem' }}>
-                      {c.diasSemComprar === null ? 'Nunca fez um pedido' : `Última compra há ${c.diasSemComprar} dias`}
+          {carregandoInativos ? <p style={{ color: '#777' }}>Carregando...</p> : (
+            <>
+              {inativos.length === 0 ? (
+                <p style={{ color: '#777' }}>Nenhum cliente inativo encontrado nesse período. 🎉</p>
+              ) : (
+                <div style={{ backgroundColor: '#0a0a0a', borderRadius: '15px', border: '1px solid #222', overflow: 'hidden' }}>
+                  {inativos.map((c: any) => (
+                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid #151515', flexWrap: 'wrap', gap: '8px' }}>
+                      <div>
+                        <div style={{ color: '#fff', fontWeight: 'bold' }}>{c.nome}</div>
+                        <div style={{ color: '#777', fontSize: '0.8rem' }}>Última compra há {c.diasSemComprar} dias</div>
+                      </div>
+                      <button
+                        onClick={() => chamarClienteInativo(c.nome, c.telefone)}
+                        style={{ padding: '8px 14px', backgroundColor: '#1a1a1a', color: '#25D366', border: '1px solid #25D36650', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}
+                      >
+                        📲 Chamar no WhatsApp
+                      </button>
                     </div>
-                  </div>
-                  <button
-                    onClick={() => chamarClienteInativo(c.nome, c.telefone)}
-                    style={{ padding: '8px 14px', backgroundColor: '#1a1a1a', color: '#25D366', border: '1px solid #25D36650', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}
-                  >
-                    📲 Chamar no WhatsApp
-                  </button>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+
+              {nuncaCompraram.length > 0 && (
+                <div style={{ marginTop: '25px' }}>
+                  <h4 style={{ color: '#999', fontSize: '0.9rem' }}>Nunca fizeram nenhum pedido ({nuncaCompraram.length})</h4>
+                  <div style={{ backgroundColor: '#0a0a0a', borderRadius: '15px', border: '1px solid #222', overflow: 'hidden' }}>
+                    {nuncaCompraram.map((c: any) => (
+                      <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 18px', borderBottom: '1px solid #151515' }}>
+                        <span style={{ color: '#ccc' }}>{c.nome}</span>
+                        <button
+                          onClick={() => chamarClienteInativo(c.nome, c.telefone)}
+                          style={{ padding: '6px 12px', backgroundColor: '#1a1a1a', color: '#25D366', border: '1px solid #25D36650', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}
+                        >
+                          📲 Chamar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </>
       )}

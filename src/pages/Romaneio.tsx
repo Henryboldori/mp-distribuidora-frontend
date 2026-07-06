@@ -103,9 +103,7 @@ export default function Romaneio() {
 
             {todosItens.map((item: any, idx: number) => (
               <div className="rel-linha" key={idx}>
-                <span className="rel-col-produto">
-                  {item.nome}{!item.produtoId ? ' (avulso)' : ''}
-                </span>
+                <span className="rel-col-produto">{item.nome}</span>
                 <span className="rel-col-unid">{item.unidade}</span>
                 <span className="rel-col-qtd">{item.quantidade}</span>
               </div>
